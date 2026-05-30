@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
+
 project(
 	cpp_request
 	VERSION 1.0
@@ -13,7 +14,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 
-# Core library source files
 set(CORE_SOURCES
 	${CMAKE_SOURCE_DIR}/src/core/socket.cpp
 	${CMAKE_SOURCE_DIR}/src/transport/winsock_init.cpp
@@ -23,26 +23,50 @@ set(CORE_SOURCES
 	${CMAKE_SOURCE_DIR}/src/http/response.cpp
 )
 
-# Main executable
-add_executable(${PROJECT_NAME}
-	${CMAKE_SOURCE_DIR}/src/main.cpp
+add_library(cpp_request STATIC
 	${CORE_SOURCES}
 )
 
-# Public include directory (for users)
-target_include_directories(${PROJECT_NAME} PUBLIC
-	${CMAKE_SOURCE_DIR}/include
+add_executable(cpp_request_app
+	${CMAKE_SOURCE_DIR}/src/main.cpp
 )
 
-# Internal include directory (for implementation)
-target_include_directories(${PROJECT_NAME} PRIVATE
-	${CMAKE_SOURCE_DIR}/src
+target_link_libraries(cpp_request_app PRIVATE
+	cpp_request
 )
 
-message("")
-message("")
+target_include_directories(cpp_request
+	PUBLIC
+		${CMAKE_SOURCE_DIR}/include
+	PRIVATE
+		${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(cpp_request_app
+	PRIVATE
+		${CMAKE_SOURCE_DIR}/include
+		${CMAKE_SOURCE_DIR}/src
+)
+
+if(MSVC)
+	target_compile_options(cpp_request PRIVATE
+		$<$<CONFIG:Release>:/O2 /GL /DNDEBUG>
+	)
+	target_link_options(cpp_request PRIVATE
+		$<$<CONFIG:Release>:/LTCG>
+	)
+else()
+	target_compile_options(cpp_request PRIVATE
+		$<$<CONFIG:Release>:-O3 -flto -DNDEBUG>
+	)
+	target_link_options(cpp_request PRIVATE
+		$<$<CONFIG:Release>:-flto>
+	)
+endif()
+
+
+message("=========================================")
 message("Project Name    : ${PROJECT_NAME}")
 message("Project Version : ${PROJECT_VERSION}")
 message("C++ Standard    : ${CMAKE_CXX_STANDARD}")
-message("")
-message("")
+message("=========================================")

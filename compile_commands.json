@@ -1,12 +1,6 @@
 [
 {
   "directory": "D:/Project/cpp_request/build",
-  "command": "D:\\program\\LLVM\\bin\\clang++.exe -ID:/Project/cpp_request/include -ID:/Project/cpp_request/src -O0 -g -Xclang -gcodeview -std=c++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\cpp_request.dir\\src\\main.cpp.obj -c D:\\Project\\cpp_request\\src\\main.cpp",
-  "file": "D:/Project/cpp_request/src/main.cpp",
-  "output": "D:/Project/cpp_request/build/CMakeFiles/cpp_request.dir/src/main.cpp.obj"
-},
-{
-  "directory": "D:/Project/cpp_request/build",
   "command": "D:\\program\\LLVM\\bin\\clang++.exe -ID:/Project/cpp_request/include -ID:/Project/cpp_request/src -O0 -g -Xclang -gcodeview -std=c++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\cpp_request.dir\\src\\core\\socket.cpp.obj -c D:\\Project\\cpp_request\\src\\core\\socket.cpp",
   "file": "D:/Project/cpp_request/src/core/socket.cpp",
   "output": "D:/Project/cpp_request/build/CMakeFiles/cpp_request.dir/src/core/socket.cpp.obj"
@@ -40,5 +34,11 @@
   "command": "D:\\program\\LLVM\\bin\\clang++.exe -ID:/Project/cpp_request/include -ID:/Project/cpp_request/src -O0 -g -Xclang -gcodeview -std=c++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\cpp_request.dir\\src\\http\\response.cpp.obj -c D:\\Project\\cpp_request\\src\\http\\response.cpp",
   "file": "D:/Project/cpp_request/src/http/response.cpp",
   "output": "D:/Project/cpp_request/build/CMakeFiles/cpp_request.dir/src/http/response.cpp.obj"
+},
+{
+  "directory": "D:/Project/cpp_request/build",
+  "command": "D:\\program\\LLVM\\bin\\clang++.exe -ID:/Project/cpp_request/include -ID:/Project/cpp_request/src -O0 -g -Xclang -gcodeview -std=c++23 -D_DEBUG -D_DLL -D_MT -Xclang --dependent-lib=msvcrtd -o CMakeFiles\\cpp_request_app.dir\\src\\main.cpp.obj -c D:\\Project\\cpp_request\\src\\main.cpp",
+  "file": "D:/Project/cpp_request/src/main.cpp",
+  "output": "D:/Project/cpp_request/build/CMakeFiles/cpp_request_app.dir/src/main.cpp.obj"
 }
 ]
