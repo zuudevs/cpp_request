@@ -18,7 +18,9 @@ set(CORE_SOURCES
 	${CMAKE_SOURCE_DIR}/src/core/socket.cpp
 	${CMAKE_SOURCE_DIR}/src/transport/winsock_init.cpp
 	${CMAKE_SOURCE_DIR}/src/platform/winsock.cpp
-	${CMAKE_SOURCE_DIR}/src/request.cpp
+	${CMAKE_SOURCE_DIR}/src/client/client.cpp
+	${CMAKE_SOURCE_DIR}/src/http/request.cpp
+	${CMAKE_SOURCE_DIR}/src/http/response.cpp
 )
 
 # Main executable

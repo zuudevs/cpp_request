@@ -30,7 +30,7 @@ std::expected<void, zd::crq::Error> WinSock::connect(std::string_view host,
   auto res = ::getaddrinfo(host.data(), service.c_str(), &hints, &info);
 
   if (res != 0) {
-    return std::unexpected{zd::crq::core::to_error<zd::crq::Error>{}(res)};
+    return std::unexpected{zd::crq::to_error(res)};
   }
 
   if (!socket_.create(info->ai_family, info->ai_socktype, info->ai_protocol)) {
@@ -44,8 +44,7 @@ std::expected<void, zd::crq::Error> WinSock::connect(std::string_view host,
   ::freeaddrinfo(info);
 
   if (!conn_res) {
-    return std::unexpected{
-        zd::crq::core::to_error<zd::crq::Error>{}(::WSAGetLastError())};
+    return std::unexpected{zd::crq::to_error(::WSAGetLastError())};
   }
 
   return {};
@@ -60,8 +59,7 @@ WinSock::send(std::string_view req) noexcept {
   auto res = socket_.send(req.data(), static_cast<int>(req.size()));
 
   if (res == SOCKET_ERROR) {
-    return std::unexpected{
-        zd::crq::core::to_error<zd::crq::Error>{}(::WSAGetLastError())};
+    return std::unexpected{zd::crq::to_error(::WSAGetLastError())};
   }
 
   return static_cast<size_t>(res);
@@ -76,8 +74,7 @@ std::expected<std::vector<char>, zd::crq::Error> WinSock::receive() noexcept {
   auto bytes = socket_.receive(data.data(), static_cast<int>(data.size()));
 
   if (bytes == SOCKET_ERROR) {
-    return std::unexpected{
-        zd::crq::core::to_error<zd::crq::Error>{}(::WSAGetLastError())};
+    return std::unexpected{zd::crq::to_error(::WSAGetLastError())};
   }
 
   data.resize(static_cast<size_t>(bytes));
@@ -98,8 +95,7 @@ WinSock::receive_all() noexcept {
         socket_.receive(buffer.data(), static_cast<int>(buffer.size()));
 
     if (bytes == SOCKET_ERROR) {
-      return std::unexpected{
-          zd::crq::core::to_error<zd::crq::Error>{}(::WSAGetLastError())};
+      return std::unexpected{zd::crq::to_error(::WSAGetLastError())};
     }
 
     if (bytes == 0) {

@@ -19,7 +19,7 @@ std::expected<void, zd::crq::Error> WinSockInit::init() noexcept {
   auto res = ::WSAStartup(MAKEWORD(2, 2), &wsa_data);
 
   if (res != 0) {
-    return std::unexpected{zd::crq::core::to_error<zd::crq::Error>{}(res)};
+    return std::unexpected{zd::crq::to_error(res)};
   }
 
   // Store for cleanup

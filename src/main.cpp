@@ -9,42 +9,45 @@
  */
 
 #include <iostream>
+#include "cpp_request/client.h"
 #include "cpp_request/request.h"
 
 int main() {
     zd::crq::HttpClient client;
 
-    // Example: Connect to example.com
-    auto conn_result = client.connect("https://service-order-api-production.up.railway.app/health", 443);
-    if (!conn_result) {
-        std::cerr << "Failed to connect\n";
+    // Example 1: Simple GET request
+    std::cout << "Making GET request...\n";
+    auto result = client.get("http://httpbin.org/get");
+    
+    if (!result) {
+        std::cerr << "Request failed\n";
         return 1;
     }
 
-    // Send HTTP GET request
-    std::string request = "GET / HTTP/1.1\r\n"
-                         "Host: https://service-order-api-production.up.railway.app/health\r\n"
-                         "Connection: close\r\n"
-                         "\r\n";
+    auto& response = result.value();
+    
+    // Print response details
+    std::cout << "Status Code: " << response.status_code() << "\n";
+    std::cout << "Status Message: " << response.status_message() << "\n";
+    std::cout << "Response Body Size: " << response.body().size() << " bytes\n";
+    
+    // Example 2: POST with custom headers
+    std::cout << "\n--- Making POST request ---\n";
+    zd::crq::Request post_req;
+    post_req
+        .method(zd::crq::Method::Post)
+        .url("http://httpbin.org/post")
+        .header("Content-Type", "application/json")
+        .body(R"({"name":"cpp_request","version":"1.0"})");
 
-    auto send_result = client.send(request);
-    if (!send_result) {
-        std::cerr << "Failed to send request\n";
-        return 1;
+    auto post_result = client.send(post_req);
+    if (post_result) {
+        std::cout << "POST Status: " << post_result->status_code() << "\n";
+        std::cout << "POST Body Size: " << post_result->body().size() << " bytes\n";
+    } else {
+        std::cerr << "POST failed\n";
     }
 
-    // Receive response
-    auto recv_result = client.receive_all();
-    if (!recv_result) {
-        std::cerr << "Failed to receive response\n";
-        return 1;
-    }
-
-    // Print response
-    const auto& response = recv_result.value();
-    std::cout.write(response.data(), response.size());
-    std::cout << "\n";
-
-    client.close();
+    std::cout << "\n✓ Examples completed successfully\n";
     return 0;
 }
