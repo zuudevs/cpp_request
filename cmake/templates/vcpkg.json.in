@@ -1,0 +1,7 @@
+{
+    "name": "@PROJECT_NAME_SLUG@",
+    "version": "@PROJECT_VERSION@",
+    "description": "@PROJECT_DESCRIPTION@",
+    "dependencies": [
+	]
+}
