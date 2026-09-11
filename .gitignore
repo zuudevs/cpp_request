@@ -4,7 +4,7 @@
 /out/
 /bin/
 /lib/
-.caches/
+.cache/
 
 # CMake generated files & caches
 CMakeCache.txt
