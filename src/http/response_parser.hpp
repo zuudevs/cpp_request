@@ -1,5 +1,7 @@
 #pragma once
 
+#include "http/chunked_decoder.hpp"
+
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -12,8 +14,7 @@ namespace cpp_request::detail::http {
 
 enum class ResponseParseProgress {
     NeedMore,
-    Complete,
-    NeedsChunkedDecoder
+    Complete
 };
 
 class ResponseParser final {
@@ -45,6 +46,7 @@ private:
     Stage stage_{Stage::Head};
     Response response_;
     std::string buffer_;
+    ChunkedDecoder chunked_decoder_;
     std::size_t content_length_remaining_{0};
     bool connection_close_requested_{false};
     bool close_delimited_{false};

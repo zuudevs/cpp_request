@@ -267,8 +267,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                 return parsed.error();
             }
 
-            const std::size_t consumed = head_end + 4;
-            buffer_.erase(0, consumed);
+            buffer_.erase(0, head_end + 4);
 
             ParsedHead head = std::move(parsed).value();
             if (is_interim_status(head.status_code)) {
@@ -305,7 +304,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                     std::size_t token_begin = 0;
                     while (token_begin <= field.value.size()) {
                         const std::size_t comma = field.value.find(',', token_begin);
-                        const std::size_t token_end = comma == std::string::npos
+                        const std::size_t token_end = comma == std::string_view::npos
                             ? field.value.size()
                             : comma;
                         const std::string_view token = trim_ows(
@@ -319,7 +318,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                         if (!ascii_iequals(token, "chunked")) {
                             transfer_encoding_is_chunked = false;
                         }
-                        if (comma == std::string::npos) {
+                        if (comma == std::string_view::npos) {
                             break;
                         }
                         token_begin = comma + 1;
@@ -347,7 +346,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                     return Error{ErrorCode::MalformedResponse};
                 }
                 stage_ = Stage::ChunkedBody;
-                return ResponseParseProgress::NeedsChunkedDecoder;
+                continue;
             }
 
             if (content_length_count == 1) {
@@ -390,8 +389,17 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
             }
             return ResponseParseProgress::NeedMore;
 
-        case Stage::ChunkedBody:
-            return ResponseParseProgress::NeedsChunkedDecoder;
+        case Stage::ChunkedBody: {
+            auto decoded = chunked_decoder_.process(buffer_, response_.body_);
+            if (!decoded) {
+                return decoded.error();
+            }
+            if (decoded.value() == ChunkDecodeProgress::NeedMore) {
+                return ResponseParseProgress::NeedMore;
+            }
+            stage_ = Stage::Complete;
+            return ResponseParseProgress::Complete;
+        }
 
         case Stage::Complete:
             return ResponseParseProgress::Complete;
