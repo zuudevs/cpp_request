@@ -2,6 +2,12 @@ include(${CMAKE_SOURCE_DIR}/cmake/packages/google-test.cmake)
 
 add_executable(cpp_request_tests
 	${CMAKE_CURRENT_SOURCE_DIR}/url_test.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/native_socket_test.cpp
+)
+
+target_include_directories(cpp_request_tests
+	PRIVATE
+		${CMAKE_SOURCE_DIR}/src
 )
 
 target_link_libraries(cpp_request_tests
@@ -9,6 +15,10 @@ target_link_libraries(cpp_request_tests
 		cpp_request::internal
 		GTest::gtest_main
 )
+
+if(WIN32)
+	target_link_libraries(cpp_request_tests PRIVATE ws2_32)
+endif()
 
 target_compile_features(cpp_request_tests PRIVATE cxx_std_17)
 
