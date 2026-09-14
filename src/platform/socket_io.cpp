@@ -33,11 +33,11 @@ SocketWaitResult wait_socket(
     const long long total_ms = std::max<long long>(1, timeout.count());
     const long long seconds = std::min<long long>(
         total_ms / 1000,
-        std::numeric_limits<long>::max());
+        (std::numeric_limits<long>::max)());
 
     timeval tv{};
     tv.tv_sec = static_cast<long>(seconds);
-    tv.tv_usec = seconds == std::numeric_limits<long>::max()
+    tv.tv_usec = seconds == (std::numeric_limits<long>::max)()
         ? 0L
         : static_cast<long>((total_ms % 1000) * 1000);
 
@@ -60,7 +60,7 @@ SocketWaitResult wait_socket(
     const long long total_ms = std::max<long long>(1, timeout.count());
     const long long bounded = std::min<long long>(
         total_ms,
-        std::numeric_limits<int>::max());
+        (std::numeric_limits<int>::max)());
 
     const int wait_result = ::poll(
         &descriptor,
@@ -80,7 +80,7 @@ SocketWaitResult wait_socket(
 std::size_t bounded_io_size(std::size_t size) noexcept {
     return std::min<std::size_t>(
         size,
-        static_cast<std::size_t>(std::numeric_limits<int>::max()));
+        static_cast<std::size_t>((std::numeric_limits<int>::max)()));
 }
 
 } // namespace
