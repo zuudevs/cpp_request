@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <utility>
 
 namespace cpp_request {
 namespace {
