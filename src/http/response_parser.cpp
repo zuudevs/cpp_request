@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
 namespace cpp_request::detail::http {
@@ -318,7 +319,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                         if (!ascii_iequals(token, "chunked")) {
                             transfer_encoding_is_chunked = false;
                         }
-                        if (comma == std::string::npos) {
+                        if (comma == std::string_view::npos) {
                             break;
                         }
                         token_begin = comma + 1;
