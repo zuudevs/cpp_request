@@ -4,7 +4,6 @@
     "description": "A lightweight, dependency-free HTTP client library written from scratch in C/C++ to understand low-level network communication and TCP socket programming.",
     "builtin-baseline": "a1cae005c39be7b18ba319fced856b68d7276271",
     "dependencies": [
-        "benchmark",
         "gtest"
     ]
 }
