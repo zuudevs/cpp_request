@@ -21,12 +21,22 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+
     - name: Configure CMake
       shell: bash
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
     - name: Build Project
       shell: bash
       run: |
         cmake --build build --config ${{ matrix.build_type }}
+
+    - name: Run Tests
+      shell: bash
+      run: |
+        ctest --test-dir build --build-config ${{ matrix.build_type }} --output-on-failure
