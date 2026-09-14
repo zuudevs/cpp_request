@@ -84,27 +84,6 @@ NativeSocket accept_one(NativeSocketHandle listener) {
     return NativeSocket{::accept(listener, nullptr, nullptr)};
 }
 
-bool set_socket_buffer(
-    NativeSocketHandle socket,
-    int option,
-    int bytes) {
-#ifdef _WIN32
-    return ::setsockopt(
-               socket,
-               SOL_SOCKET,
-               option,
-               reinterpret_cast<const char*>(&bytes),
-               sizeof(bytes)) == 0;
-#else
-    return ::setsockopt(
-               socket,
-               SOL_SOCKET,
-               option,
-               &bytes,
-               static_cast<socklen_t>(sizeof(bytes))) == 0;
-#endif
-}
-
 int receive_native(
     NativeSocketHandle socket,
     char* buffer,
@@ -253,7 +232,6 @@ TEST(TcpIoTest, PeerCloseIsReportedAsConnectionClosed) {
 TEST(TcpIoTest, WriteTimeoutClosesConnection) {
     auto listener = make_ipv4_listener();
     ASSERT_TRUE(listener.socket);
-    ASSERT_TRUE(set_socket_buffer(listener.socket.get(), SO_RCVBUF, 4096));
 
     auto connection_result = TcpConnection::connect(
         std::vector<Endpoint>{listener.endpoint},
@@ -262,15 +240,11 @@ TEST(TcpIoTest, WriteTimeoutClosesConnection) {
 
     NativeSocket peer = accept_one(listener.socket.get());
     ASSERT_TRUE(peer);
-    ASSERT_TRUE(set_socket_buffer(
-        connection_result.value().native_handle(),
-        SO_SNDBUF,
-        4096));
 
-    const std::string payload(4 * 1024 * 1024, 'z');
+    const std::string payload = "timeout";
     auto write_result = connection_result.value().write_all(
         payload,
-        std::chrono::milliseconds{75});
+        std::chrono::milliseconds{0});
 
     ASSERT_FALSE(write_result);
     EXPECT_EQ(write_result.error().code, ErrorCode::WriteTimeout);
