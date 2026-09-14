@@ -19,23 +19,13 @@ The v1 architecture is designed around four priorities:
 
 ## Layered Model
 
-```text
-Application
-    |
-    v
-Public API
-    |
-    v
-HTTP Layer
-    |
-    v
-Transport Layer
-    |
-    v
-Platform Socket Layer
-    |
-    v
-Operating System
+```mermaid
+flowchart TD
+    A[Application] --> B[Public API]
+    B --> C[HTTP Layer]
+    C --> D[Transport Layer]
+    D --> E[Platform Socket Layer]
+    E --> F[Operating System]
 ```
 
 ### Public API
@@ -94,38 +84,18 @@ Platform-native errors are translated before crossing into upper layers.
 
 ## Request Flow
 
-```text
-Client::request(...)
-    |
-    v
-Validate + parse URL
-    |
-    v
-Resolve endpoint
-    |
-    v
-Reuse or establish TCP connection
-    |
-    v
-Serialize HTTP request
-    |
-    v
-Write bytes
-    |
-    v
-Read response bytes
-    |
-    v
-Parse status + headers
-    |
-    v
-Decode response framing/body
-    |
-    v
-Determine connection reuse eligibility
-    |
-    v
-Return Result<Response>
+```mermaid
+flowchart TD
+    A[Client::request] --> B[Validate and parse URL]
+    B --> C[Resolve endpoint]
+    C --> D[Reuse or establish TCP connection]
+    D --> E[Serialize HTTP request]
+    E --> F[Write bytes]
+    F --> G[Read response bytes]
+    G --> H[Parse status and headers]
+    H --> I[Decode response framing and body]
+    I --> J[Determine connection reuse eligibility]
+    J --> K[Return Result<Response>]
 ```
 
 ## Ownership Rules
@@ -156,8 +126,11 @@ These may be introduced in later releases without violating the v1 layer boundar
 
 Upper layers may depend on lower layers, but lower layers must not depend on HTTP or public API semantics.
 
-```text
-Public API -> HTTP -> Transport -> Platform
+```mermaid
+flowchart LR
+    A[Public API] --> B[HTTP]
+    B --> C[Transport]
+    C --> D[Platform]
 ```
 
 Reverse dependencies are not permitted in the v1 design.
