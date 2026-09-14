@@ -6,6 +6,8 @@
 #include <cpp_request/result.hpp>
 
 #include <chrono>
+#include <cstddef>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -22,6 +24,15 @@ public:
 
     [[nodiscard]] static Result<TcpConnection> connect(
         const std::vector<Endpoint>& endpoints,
+        std::chrono::milliseconds timeout);
+
+    [[nodiscard]] Result<std::size_t> write_all(
+        std::string_view data,
+        std::chrono::milliseconds timeout);
+
+    [[nodiscard]] Result<std::size_t> read_some(
+        char* buffer,
+        std::size_t capacity,
         std::chrono::milliseconds timeout);
 
     [[nodiscard]] bool connected() const noexcept {
