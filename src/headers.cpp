@@ -1,6 +1,7 @@
 #include <cpp_request/headers.hpp>
 
 #include <algorithm>
+#include <iterator>
 
 namespace cpp_request {
 namespace {
