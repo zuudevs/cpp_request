@@ -17,20 +17,13 @@ The transport layer provides synchronous, byte-oriented TCP communication withou
 
 ## Suggested Internal Components
 
-```text
-Resolver
-  |
-  v
-Endpoint candidates
-  |
-  v
-TcpConnection
-  |
-  +--> NativeSocket
-  |
-  +--> timeout configuration
-  |
-  +--> connection state
+```mermaid
+flowchart TD
+    R[Resolver] --> E[Endpoint Candidates]
+    E --> T[TcpConnection]
+    T --> S[NativeSocket]
+    T --> C[Timeout Configuration]
+    T --> ST[Connection State]
 ```
 
 Names are illustrative and are not yet public API commitments.
