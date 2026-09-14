@@ -98,21 +98,25 @@ Expected backend: BSD/POSIX socket APIs suitable for Linux and compatible POSIX 
 
 Allowed dependencies:
 
-```text
-public -> http
-public -> transport      (only through internal orchestration where required)
-http   -> transport interface
-transport -> platform
+```mermaid
+flowchart TD
+    Public[Public API] --> HTTP[HTTP Layer]
+    Public --> Transport[Transport Layer]
+    HTTP --> Transport
+    Transport --> Platform[Platform Socket Layer]
 ```
+
+The direct `Public API -> Transport` dependency is limited to internal orchestration where required. HTTP semantics must not leak into transport.
 
 Forbidden dependencies:
 
-```text
-platform -> transport policy
-platform -> HTTP
-platform -> public API
-transport -> HTTP semantics
-HTTP -> native OS socket APIs
+```mermaid
+flowchart TD
+    Platform[Platform Socket Layer] -. forbidden .-> TransportPolicy[Transport Policy]
+    Platform -. forbidden .-> HTTP[HTTP Layer]
+    Platform -. forbidden .-> Public[Public API]
+    Transport[Transport Layer] -. forbidden .-> HTTPSemantics[HTTP Semantics]
+    HTTP -. forbidden .-> Native[Native OS Socket APIs]
 ```
 
 ## Data Movement Principle
