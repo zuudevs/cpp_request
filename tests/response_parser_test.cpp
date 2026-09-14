@@ -114,19 +114,57 @@ TEST(ResponseParserTest, ConnectionClosePreventsReuseEvenWithContentLength) {
     EXPECT_FALSE(parser.connection_reusable());
 }
 
-TEST(ResponseParserTest, ChunkedResponseHandsOffWithoutConsumingBodyBytes) {
+TEST(ResponseParserTest, DecodesChunkedResponseAndPreservesFollowingBytes) {
+    ResponseParser parser{Method::Get};
+
+    const std::string wire =
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "4\r\nWiki\r\n"
+        "5;part=two\r\npedia\r\n"
+        "0\r\n"
+        "X-Trailer: done\r\n"
+        "\r\n"
+        "HTTP/1.1 204 No Content\r\n\r\n";
+
+    for (const char ch : wire) {
+        if (parser.complete()) {
+            break;
+        }
+        auto result = parser.feed(std::string_view{&ch, 1});
+        ASSERT_TRUE(result);
+    }
+
+    ASSERT_TRUE(parser.complete());
+    EXPECT_EQ(parser.response().body(), "Wikipedia");
+    EXPECT_TRUE(parser.connection_reusable());
+
+    const std::size_t response_end = wire.find("HTTP/1.1 204 No Content");
+    ASSERT_NE(response_end, std::string::npos);
+    if (parser.pending_bytes().empty()) {
+        auto tail = parser.feed(std::string_view{wire}.substr(response_end));
+        ASSERT_TRUE(tail);
+    }
+}
+
+TEST(ResponseParserTest, ChunkedResponsePreservesAlreadyBufferedFollowingResponse) {
     ResponseParser parser{Method::Get};
 
     auto result = parser.feed(
         "HTTP/1.1 200 OK\r\n"
         "Transfer-Encoding: chunked\r\n"
         "\r\n"
-        "4\r\nWiki\r\n0\r\n\r\n");
+        "4\r\nWiki\r\n"
+        "0\r\n\r\n"
+        "HTTP/1.1 204 No Content\r\n\r\n");
 
     ASSERT_TRUE(result);
-    EXPECT_EQ(result.value(), ResponseParseProgress::NeedsChunkedDecoder);
-    EXPECT_FALSE(parser.complete());
-    EXPECT_EQ(parser.pending_bytes(), "4\r\nWiki\r\n0\r\n\r\n");
+    EXPECT_EQ(result.value(), ResponseParseProgress::Complete);
+    EXPECT_EQ(parser.response().body(), "Wiki");
+    EXPECT_EQ(
+        parser.pending_bytes(),
+        "HTTP/1.1 204 No Content\r\n\r\n");
 }
 
 TEST(ResponseParserTest, RejectsTransferEncodingAndContentLengthTogether) {
@@ -230,6 +268,22 @@ TEST(ResponseParserTest, PrematureEofForContentLengthIsError) {
         "Content-Length: 5\r\n"
         "\r\n"
         "abc");
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ResponseParseProgress::NeedMore);
+
+    auto eof = parser.finish_eof();
+    ASSERT_FALSE(eof);
+    EXPECT_EQ(eof.error().code, ErrorCode::UnexpectedEof);
+}
+
+TEST(ResponseParserTest, PrematureEofForChunkedBodyIsError) {
+    ResponseParser parser{Method::Get};
+
+    auto result = parser.feed(
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "5\r\nabc");
     ASSERT_TRUE(result);
     EXPECT_EQ(result.value(), ResponseParseProgress::NeedMore);
 
