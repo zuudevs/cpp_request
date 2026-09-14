@@ -33,27 +33,30 @@ void Headers::add(std::string_view name, std::string_view value) {
 }
 
 void Headers::set(std::string_view name, std::string_view value) {
+    std::string owned_name{name};
+    std::string owned_value{value};
+
     const auto first = std::find_if(
         fields_.begin(),
         fields_.end(),
-        [name](const Field& field) {
-            return ascii_iequals(field.name, name);
+        [&owned_name](const Field& field) {
+            return ascii_iequals(field.name, owned_name);
         });
 
     if (first == fields_.end()) {
-        add(name, value);
+        fields_.push_back(Field{std::move(owned_name), std::move(owned_value)});
         return;
     }
 
-    first->name.assign(name.data(), name.size());
-    first->value.assign(value.data(), value.size());
+    first->name = owned_name;
+    first->value = std::move(owned_value);
 
     fields_.erase(
         std::remove_if(
             std::next(first),
             fields_.end(),
-            [name](const Field& field) {
-                return ascii_iequals(field.name, name);
+            [&owned_name](const Field& field) {
+                return ascii_iequals(field.name, owned_name);
             }),
         fields_.end());
 }
