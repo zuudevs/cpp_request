@@ -6,6 +6,7 @@
 #include <cpp_request/result.hpp>
 
 #include <chrono>
+#include <utility>
 #include <vector>
 
 namespace cpp_request::detail::net {
