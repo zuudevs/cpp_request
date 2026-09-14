@@ -6,6 +6,7 @@
 - Target release: MVP v1.0
 - Status: Frozen baseline
 - Scope: Synchronous HTTP/1.1 client over native OS sockets
+- Minimum language standard: C++17
 
 ## Requirement Conventions
 
@@ -71,7 +72,7 @@ The caller shall be able to append query parameters to an HTTP request target.
 The library shall support request bodies provided from memory.
 
 **Acceptance criteria:**
-- A request body can be provided as an owned or referenced memory-backed value exposed by the public API.
+- A request body can be provided as an owned value or as a non-owning `std::string_view` when the caller can satisfy the required lifetime.
 - The body is transmitted completely before the request is considered successfully written.
 - Request streaming is not required in v1.0.
 
@@ -299,7 +300,7 @@ The client shall expose a configurable write timeout.
 ### REQ-ERR-001 — Structured result type
 **Priority:** MUST
 
-Fallible public operations shall use a project-defined `Result<T>`-style abstraction compatible with C++11.
+Fallible public operations shall use a project-defined `Result<T>`-style abstraction.
 
 **Acceptance criteria:**
 - The caller can distinguish success from failure without parsing strings.
@@ -369,6 +370,16 @@ A single `Client` instance is not required to be safe for concurrent use from mu
 **Acceptance criteria:**
 - Documentation explicitly states the v1 thread-safety contract.
 - The implementation is not required to add internal synchronization solely to support concurrent access to one client instance.
+
+### REQ-API-006 — `std::string_view` for non-owning text input
+**Priority:** MUST
+
+Read-only textual input that does not require ownership shall use `std::string_view` where doing so is compatible with the lifetime contract.
+
+**Acceptance criteria:**
+- The public/internal design may accept `std::string_view` for URLs, header views, request body views, and parsing inputs where ownership is unnecessary.
+- The library does not introduce a project-specific `string_view` compatibility type.
+- Any API retaining data beyond the call boundary must establish ownership rather than storing an unsafe view.
 
 ---
 
