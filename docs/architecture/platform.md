@@ -64,17 +64,11 @@ The platform layer captures native diagnostics but does not expose them as the p
 
 Example flow:
 
-```text
-WSAETIMEDOUT / ETIMEDOUT
-        |
-        v
-platform result
-        |
-        v
-transport timeout category
-        |
-        v
-cpp_request::Error
+```mermaid
+flowchart TD
+    A[WSAETIMEDOUT / ETIMEDOUT] --> B[Platform Result]
+    B --> C[Transport Timeout Category]
+    C --> D[cpp_request::Error]
 ```
 
 Native codes may still be retained as optional diagnostic metadata for debugging.
