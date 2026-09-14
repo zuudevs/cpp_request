@@ -2,6 +2,7 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/dummy.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/url.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/headers.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/request_serializer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/chunked_decoder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/response_parser.cpp
