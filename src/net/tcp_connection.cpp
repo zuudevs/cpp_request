@@ -14,6 +14,10 @@ Result<TcpConnection> TcpConnection::connect(
         return Error{ErrorCode::ConnectTimeout};
     }
 
+    if (endpoints.empty()) {
+        return Error{ErrorCode::ConnectFailed};
+    }
+
     const auto runtime = platform::ensure_network_runtime();
     if (!runtime.ok) {
         return Error{ErrorCode::SocketCreateFailed, runtime.native_code};
@@ -21,6 +25,7 @@ Result<TcpConnection> TcpConnection::connect(
 
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     bool created_socket = false;
+    bool saw_valid_endpoint = false;
     int last_native_error = 0;
 
     for (const Endpoint& endpoint : endpoints) {
@@ -28,6 +33,7 @@ Result<TcpConnection> TcpConnection::connect(
             continue;
         }
 
+        saw_valid_endpoint = true;
         const auto now = std::chrono::steady_clock::now();
         if (now >= deadline) {
             return Error{ErrorCode::ConnectTimeout, last_native_error};
@@ -63,6 +69,10 @@ Result<TcpConnection> TcpConnection::connect(
         if (attempt.status == platform::ConnectStatus::TimedOut) {
             return Error{ErrorCode::ConnectTimeout, last_native_error};
         }
+    }
+
+    if (!saw_valid_endpoint) {
+        return Error{ErrorCode::ConnectFailed};
     }
 
     if (!created_socket) {
