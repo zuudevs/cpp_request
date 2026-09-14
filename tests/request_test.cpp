@@ -55,12 +55,12 @@ TEST(RequestTest, ConstAccessorsExposeRequestState) {
 }
 
 TEST(RequestTest, SupportsAllV1Methods) {
-    EXPECT_EQ(Request{Method::Get, "http://example.com"}.method(), Method::Get);
-    EXPECT_EQ(Request{Method::Head, "http://example.com"}.method(), Method::Head);
-    EXPECT_EQ(Request{Method::Post, "http://example.com"}.method(), Method::Post);
-    EXPECT_EQ(Request{Method::Put, "http://example.com"}.method(), Method::Put);
-    EXPECT_EQ(Request{Method::Patch, "http://example.com"}.method(), Method::Patch);
-    EXPECT_EQ(Request{Method::Delete, "http://example.com"}.method(), Method::Delete);
+    EXPECT_EQ((Request{Method::Get, "http://example.com"}.method()), Method::Get);
+    EXPECT_EQ((Request{Method::Head, "http://example.com"}.method()), Method::Head);
+    EXPECT_EQ((Request{Method::Post, "http://example.com"}.method()), Method::Post);
+    EXPECT_EQ((Request{Method::Put, "http://example.com"}.method()), Method::Put);
+    EXPECT_EQ((Request{Method::Patch, "http://example.com"}.method()), Method::Patch);
+    EXPECT_EQ((Request{Method::Delete, "http://example.com"}.method()), Method::Delete);
 }
 
 } // namespace
