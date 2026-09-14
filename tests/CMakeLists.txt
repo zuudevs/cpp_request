@@ -4,6 +4,7 @@ add_executable(cpp_request_tests
 	${CMAKE_CURRENT_SOURCE_DIR}/url_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/native_socket_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/resolver_test.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tcp_connection_test.cpp
 )
 
 target_include_directories(cpp_request_tests
