@@ -6,23 +6,13 @@ The HTTP layer implements HTTP/1.1 request serialization and response processing
 
 ## Request Pipeline
 
-```text
-Request data
-   |
-   v
-Validate method/URL-derived target
-   |
-   v
-Serialize request line
-   |
-   v
-Serialize headers
-   |
-   v
-Serialize header terminator
-   |
-   v
-Append/body-write request payload
+```mermaid
+flowchart TD
+    A[Request Data] --> B[Validate method and URL-derived target]
+    B --> C[Serialize request line]
+    C --> D[Serialize headers]
+    D --> E[Serialize header terminator]
+    E --> F[Append or write request payload]
 ```
 
 The layer should avoid unnecessary intermediate copies. `std::string_view` may be used for non-owning request inputs when lifetime is guaranteed by the synchronous call boundary.
@@ -44,12 +34,14 @@ Automatically generated headers such as `Host` and `Content-Length` may be added
 
 The response parser conceptually proceeds through states:
 
-```text
-StatusLine
-   -> Headers
-   -> BodyFramingDecision
-   -> Body
-   -> Complete
+```mermaid
+stateDiagram-v2
+    [*] --> StatusLine
+    StatusLine --> Headers
+    Headers --> BodyFramingDecision
+    BodyFramingDecision --> Body
+    Body --> Complete
+    Complete --> [*]
 ```
 
 Malformed protocol data transitions to an error result instead of continuing with ambiguous state.
