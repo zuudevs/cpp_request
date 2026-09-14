@@ -2,6 +2,8 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/dummy.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/url.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/native_socket.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/platform/network_runtime.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/net/resolver.cpp
 )
 
 add_library(${PROJECT_NAME}::internal ALIAS internal)
