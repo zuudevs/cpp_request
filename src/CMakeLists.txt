@@ -3,6 +3,8 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/url.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/native_socket.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/network_runtime.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/platform/socket_mode.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/platform/socket_io.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/socket_connect.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/net/resolver.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/net/tcp_connection.cpp

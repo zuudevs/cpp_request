@@ -1,49 +1,23 @@
 #include "platform/socket_connect.hpp"
 
+#include "platform/socket_io.hpp"
+#include "platform/socket_mode.hpp"
+
 #ifdef _WIN32
 #include <winsock2.h>
 #else
 #include <cerrno>
-#include <fcntl.h>
-#include <poll.h>
 #include <sys/socket.h>
 #endif
-
-#include <algorithm>
-#include <limits>
 
 namespace cpp_request::detail::platform {
 namespace {
 
 #ifdef _WIN32
-bool set_nonblocking(NativeSocketHandle socket, bool enabled, int& native_code) noexcept {
-    u_long mode = enabled ? 1UL : 0UL;
-    if (::ioctlsocket(socket, FIONBIO, &mode) == 0) {
-        return true;
-    }
-    native_code = ::WSAGetLastError();
-    return false;
-}
-
 bool connect_in_progress(int code) noexcept {
     return code == WSAEWOULDBLOCK || code == WSAEINPROGRESS || code == WSAEALREADY;
 }
 #else
-bool set_nonblocking(NativeSocketHandle socket, bool enabled, int& native_code) noexcept {
-    const int flags = ::fcntl(socket, F_GETFL, 0);
-    if (flags == -1) {
-        native_code = errno;
-        return false;
-    }
-
-    const int next = enabled ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
-    if (::fcntl(socket, F_SETFL, next) == 0) {
-        return true;
-    }
-    native_code = errno;
-    return false;
-}
-
 bool connect_in_progress(int code) noexcept {
     return code == EINPROGRESS || code == EWOULDBLOCK || code == EALREADY;
 }
@@ -80,7 +54,23 @@ NativeSocket create_tcp_socket(
         native_code = last_socket_error();
         return {};
     }
-    return NativeSocket{handle};
+
+    NativeSocket socket{handle};
+
+#if !defined(_WIN32) && defined(SO_NOSIGPIPE) && !defined(MSG_NOSIGNAL)
+    const int enabled = 1;
+    if (::setsockopt(
+            handle,
+            SOL_SOCKET,
+            SO_NOSIGPIPE,
+            &enabled,
+            static_cast<socklen_t>(sizeof(enabled))) != 0) {
+        native_code = last_socket_error();
+        return {};
+    }
+#endif
+
+    return socket;
 }
 
 ConnectAttemptResult connect_with_timeout(
@@ -93,7 +83,7 @@ ConnectAttemptResult connect_with_timeout(
     }
 
     int native_code = 0;
-    if (!set_nonblocking(socket, true, native_code)) {
+    if (!set_socket_nonblocking(socket, true, native_code)) {
         return {ConnectStatus::Failed, native_code};
     }
 
@@ -110,7 +100,7 @@ ConnectAttemptResult connect_with_timeout(
 #endif
 
     if (connect_result == 0) {
-        if (!set_nonblocking(socket, false, native_code)) {
+        if (!set_socket_nonblocking(socket, false, native_code)) {
             return {ConnectStatus::Failed, native_code};
         }
         return {ConnectStatus::Connected, 0};
@@ -121,46 +111,17 @@ ConnectAttemptResult connect_with_timeout(
         return {ConnectStatus::Failed, native_code};
     }
 
-#ifdef _WIN32
-    fd_set write_set;
-    fd_set except_set;
-    FD_ZERO(&write_set);
-    FD_ZERO(&except_set);
-    FD_SET(socket, &write_set);
-    FD_SET(socket, &except_set);
-
-    const auto total_ms = timeout.count();
-    timeval tv{};
-    tv.tv_sec = static_cast<long>(total_ms / 1000);
-    tv.tv_usec = static_cast<long>((total_ms % 1000) * 1000);
-
-    const int wait_result = ::select(0, nullptr, &write_set, &except_set, &tv);
-    if (wait_result == 0) {
-        return {ConnectStatus::TimedOut, 0};
+    const auto wait = wait_socket_writable(socket, timeout);
+    if (wait.status == SocketWaitStatus::TimedOut) {
+        return {ConnectStatus::TimedOut, wait.native_code};
     }
-    if (wait_result == SOCKET_ERROR) {
-        return {ConnectStatus::Failed, ::WSAGetLastError()};
+    if (wait.status == SocketWaitStatus::Failed) {
+        return {ConnectStatus::Failed, wait.native_code};
     }
-#else
-    pollfd descriptor{};
-    descriptor.fd = socket;
-    descriptor.events = POLLOUT;
-
-    const auto bounded = std::min<long long>(
-        timeout.count(),
-        std::numeric_limits<int>::max());
-    const int wait_result = ::poll(&descriptor, 1, static_cast<int>(bounded));
-    if (wait_result == 0) {
-        return {ConnectStatus::TimedOut, 0};
-    }
-    if (wait_result < 0) {
-        return {ConnectStatus::Failed, errno};
-    }
-#endif
 
     auto result = socket_error_result(socket);
     if (result.status == ConnectStatus::Connected) {
-        if (!set_nonblocking(socket, false, native_code)) {
+        if (!set_socket_nonblocking(socket, false, native_code)) {
             return {ConnectStatus::Failed, native_code};
         }
     }
