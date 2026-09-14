@@ -3,6 +3,7 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/url.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/headers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/request_serializer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/http/response_parser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/native_socket.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/network_runtime.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/socket_mode.cpp
