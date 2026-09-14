@@ -20,14 +20,18 @@ Priority meanings:
 
 ## 1. Language and Compatibility
 
-### REQ-COMP-001 — Minimum C++11
+### REQ-COMP-001 — Minimum C++17
 **Priority:** MUST
 
-The public library interface and implementation shall compile with C++11 as the minimum language standard.
+The public library interface and implementation shall compile with C++17 as the minimum language standard.
+
+**Rationale:**
+`cpp_request` relies heavily on non-owning string access for URL processing, request construction, header handling, and HTTP parsing. Using the standard `std::string_view` keeps these operations lightweight while avoiding the development and maintenance cost of a custom compatibility implementation. C++17 therefore provides a better balance between portability, performance, and implementation velocity than a C++11 baseline.
 
 **Acceptance criteria:**
-- The project can be configured with a compiler mode equivalent to C++11.
-- Public headers do not require standard-library features introduced after C++11.
+- The project can be configured with a compiler mode equivalent to C++17.
+- Public headers may use `std::string_view`.
+- No project-specific `string_view` compatibility layer is required.
 
 ### REQ-COMP-002 — Newer standard compatibility
 **Priority:** SHOULD
@@ -35,7 +39,7 @@ The public library interface and implementation shall compile with C++11 as the 
 The library should remain usable from applications compiled with newer C++ language standards.
 
 **Acceptance criteria:**
-- Supported CI jobs include at least one configuration newer than C++11 where practical.
+- Supported CI jobs include at least one configuration newer than C++17 where practical.
 
 ---
 
@@ -79,6 +83,7 @@ The implementation shall avoid avoidable data copies where ownership and lifetim
 
 **Acceptance criteria:**
 - Request serialization and response processing do not duplicate full payload buffers without a functional reason.
+- `std::string_view` is preferred for read-only non-owning string access where lifetime is well-defined.
 
 ### REQ-PERF-003 — Minimize abstraction overhead
 **Priority:** MUST
@@ -203,7 +208,7 @@ Small public types should prefer direct value semantics over heap-backed indirec
 ### REQ-APIQ-003 — Move support
 **Priority:** MUST
 
-Resource-owning types shall support efficient transfer of ownership using C++11 move semantics where appropriate.
+Resource-owning types shall support efficient transfer of ownership using move semantics where appropriate.
 
 **Acceptance criteria:**
 - Moving a resource-owning object does not duplicate the underlying native socket ownership.
@@ -280,7 +285,7 @@ CI shall validate the supported primary platforms.
 
 **Acceptance criteria:**
 - At minimum, Windows and Linux builds are exercised in CI.
-- C++11 compatibility is represented by at least one required build configuration.
+- C++17 compatibility is represented by at least one required build configuration.
 
 ---
 
@@ -318,6 +323,6 @@ The following principles guide implementation choices when multiple technically 
 
 1. **Lightweight** — avoid unnecessary dependencies, allocations, copies, and hidden machinery.
 2. **Fast** — optimize measurable hot paths and validate claims with benchmarks.
-3. **Portable** — isolate platform-specific networking details and preserve C++11 compatibility.
+3. **Portable** — isolate platform-specific networking details and preserve C++17 compatibility.
 4. **Predictable** — prefer explicit ownership, explicit errors, and bounded configured waits.
 5. **Focused** — do not expand v1.0 with post-MVP features unless required for HTTP/1.1 correctness or the frozen acceptance criteria.
