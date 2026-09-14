@@ -6,6 +6,7 @@
 #include <ws2tcpip.h>
 #else
 #include <netdb.h>
+#include <netinet/in.h>
 #endif
 
 #include <array>
