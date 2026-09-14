@@ -279,7 +279,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
             response_.reason_ = std::move(head.reason);
             response_.headers_ = std::move(head.headers);
 
-            connection_close_requested_ = false;
+            connection_close_requested_ = response_.status_code_ == 101;
             std::size_t content_length_count = 0;
             std::size_t content_length = 0;
             std::size_t transfer_encoding_fields = 0;
@@ -309,7 +309,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                             ? field.value.size()
                             : comma;
                         const std::string_view token = trim_ows(
-                            std::string_view{field.value}.substr(
+                            std::string_view{field.value.data(), field.value.size()}.substr(
                                 token_begin,
                                 token_end - token_begin));
                         if (token.empty()) {
@@ -319,7 +319,7 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                         if (!ascii_iequals(token, "chunked")) {
                             transfer_encoding_is_chunked = false;
                         }
-                        if (comma == std::string_view::npos) {
+                        if (comma == std::string::npos) {
                             break;
                         }
                         token_begin = comma + 1;
