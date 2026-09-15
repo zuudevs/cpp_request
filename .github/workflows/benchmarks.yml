@@ -1,0 +1,50 @@
+name: Benchmark Smoke
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'benchmarks/**'
+      - 'cmake/packages/google-benchmark.cmake'
+      - 'CMakeLists.txt'
+      - '.github/workflows/benchmarks.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'benchmarks/**'
+      - 'cmake/packages/google-benchmark.cmake'
+      - 'CMakeLists.txt'
+      - '.github/workflows/benchmarks.yml'
+
+jobs:
+  benchmark-smoke:
+    name: Benchmark Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Configure Release Benchmarks
+      shell: bash
+      run: |
+        cmake -B build-bench \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTING=OFF \
+          -DCPP_REQUEST_BUILD_BENCHMARKS=ON
+
+    - name: Build and Smoke Benchmarks
+      shell: bash
+      run: |
+        cmake --build build-bench \
+          --config Release \
+          --target cpp_request_benchmark_smoke
