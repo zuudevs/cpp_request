@@ -7,6 +7,9 @@
 #include <limits>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
@@ -144,12 +147,6 @@ Result<Url> Url::parse(std::string_view input) {
         return Error{ErrorCode::InvalidUrl};
     }
 
-    if (!valid_percent_escapes(std::string_view{
-            result.storage_.data() + authority_end,
-            result.storage_.size() - authority_end})) {
-        return Error{ErrorCode::InvalidUrl};
-    }
-
     const std::string_view authority{
         result.storage_.data() + authority_begin,
         authority_end - authority_begin};
@@ -165,8 +162,8 @@ Result<Url> Url::parse(std::string_view input) {
             return Error{ErrorCode::InvalidUrl};
         }
 
-        const std::string_view ipv6 = authority.substr(1, closing - 1);
-        if (!valid_ipv6_literal(ipv6)) {
+        const std::string_view literal = authority.substr(1, closing - 1);
+        if (!valid_ipv6_literal(literal)) {
             return Error{ErrorCode::InvalidUrl};
         }
 
@@ -187,11 +184,6 @@ Result<Url> Url::parse(std::string_view input) {
             result.has_explicit_port_ = true;
         }
     } else {
-        if (authority.find('[') != std::string_view::npos
-            || authority.find(']') != std::string_view::npos) {
-            return Error{ErrorCode::InvalidUrl};
-        }
-
         const std::size_t colon = authority.rfind(':');
         if (colon != std::string_view::npos) {
             if (authority.find(':') != colon) {
@@ -240,6 +232,12 @@ Result<Url> Url::parse(std::string_view input) {
         result.path_size_ = query_marker - path_begin;
         result.query_begin_ = query_marker + 1;
         result.query_size_ = result.storage_.size() - result.query_begin_;
+    }
+
+    if (!valid_percent_escapes(std::string_view{
+            result.storage_.data() + path_begin,
+            result.storage_.size() - path_begin})) {
+        return Error{ErrorCode::InvalidUrl};
     }
 
     result.target_begin_ = path_begin;
