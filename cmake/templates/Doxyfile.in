@@ -1,0 +1,11 @@
+PROJECT_NAME           = "@PROJECT_NAME@"
+PROJECT_NUMBER         = "@PROJECT_VERSION@"
+OUTPUT_DIRECTORY       = "@PROJECT_BINARY_DIR@/docs"
+INPUT                  = "@PROJECT_SOURCE_DIR@/include"
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.hpp
+EXTRACT_ALL            = YES
+GENERATE_HTML           = YES
+GENERATE_LATEX          = NO
+QUIET                   = YES
+WARN_IF_UNDOCUMENTED    = NO

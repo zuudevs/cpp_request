@@ -1,4 +1,5 @@
-enable_testing()
+include_guard(GLOBAL)
+
 find_package(GTest CONFIG QUIET)
 
 if(NOT GTest_FOUND)
@@ -7,6 +8,7 @@ if(NOT GTest_FOUND)
 		googletest
 		GIT_REPOSITORY https://github.com/google/googletest.git
 		GIT_TAG        v1.18.0
+		GIT_SHALLOW    TRUE
 	)
 
 	set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
