@@ -34,6 +34,9 @@ The public contract should support semantics equivalent to:
 template <class T>
 class [[nodiscard]] Result {
 public:
+    static Result success(T value);
+    static Result failure(Error error);
+
     bool has_value() const noexcept;
     explicit operator bool() const noexcept;
 
@@ -46,7 +49,28 @@ public:
 };
 ```
 
-Construction/factory details may differ in implementation, but the success/failure semantics are frozen.
+Construction details may differ in implementation, but the success/failure semantics are frozen.
+
+For normal `T != Error` usage, convenient direct construction from a success value or from `Error` may be provided. The explicit factories remain available when the desired state should be unambiguous.
+
+## Explicit Factories
+
+`success()` and `failure()` provide an unambiguous way to construct either state.
+
+```cpp
+auto ok = Result<int>::success(42);
+auto failed = Result<int>::failure(Error{ErrorCode::ReadTimeout});
+```
+
+This is especially important for `Result<Error>`, where the success payload type and failure type are otherwise identical.
+
+For `Result<Error>`:
+
+- `Result<Error>::success(error_value)` creates a successful result whose value is an `Error` object,
+- `Result<Error>::failure(error_value)` creates a failed result,
+- direct construction from `Error` is treated as the failure form.
+
+This keeps both states representable without introducing `ErrorCode::None` or another sentinel value.
 
 ## `[[nodiscard]]`
 
@@ -83,7 +107,7 @@ The v1 contract intentionally does not require `value()` to throw when called in
 
 Calling the wrong-state accessor is a programmer error and has a documented precondition.
 
-This avoids imposing an exception-based access model on a library whose normal error handling is explicitly non-exception-based.
+Implementations must not rely on a hidden `std::bad_variant_access` path while simultaneously declaring the accessor `noexcept`. A violated accessor precondition is outside normal runtime error handling and must not be modeled as a network/protocol failure.
 
 Recommended usage:
 
@@ -115,6 +139,8 @@ Therefore:
 - moving a result transfers its active state according to `T` / `Error` move semantics,
 - copying is available only when the contained type permits it.
 
+Move-only payloads must remain usable as successful result values.
+
 ## Storage Representation
 
 The exact physical storage is intentionally not part of the public API contract.
@@ -128,6 +154,8 @@ Acceptable implementation approaches may include:
 The implementation must be benchmarked/inspected before choosing a more complex custom representation solely for performance.
 
 C++17 makes `std::variant` a valid baseline candidate and avoids unnecessary custom lifetime machinery during initial development.
+
+If the physical alternatives have identical types, state inspection and access must use the result discriminator rather than type-based lookup.
 
 ## Allocation Policy
 
@@ -147,7 +175,7 @@ Result<void> operation();
 
 The specialization must preserve the same state-inspection and `error()` semantics.
 
-Exact implementation is deferred until a concrete internal/public operation needs it.
+Exact implementation remains deferred until a concrete internal/public operation needs it. The primary template may reject `void` explicitly in the meantime.
 
 ## No `ErrorCode::None` Requirement
 
