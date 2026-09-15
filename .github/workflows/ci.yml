@@ -3,8 +3,30 @@ name: C++ CI Build
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'benchmarks/**'
+      - 'examples/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'benchmarks/**'
+      - 'examples/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
+      - '.github/workflows/ci.yml'
 
 jobs:
   build:
