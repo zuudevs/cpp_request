@@ -5,6 +5,7 @@
 #include <cpp_request/client.hpp>
 
 #include <chrono>
+#include <string>
 
 namespace {
 
