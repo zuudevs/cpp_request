@@ -66,6 +66,13 @@ namespace {
     return ch == ' ' || ch == '\t';
 }
 
+[[nodiscard]] bool would_exceed(
+    std::size_t current,
+    std::size_t addition,
+    std::size_t limit) noexcept {
+    return current > limit || addition > limit - current;
+}
+
 [[nodiscard]] bool valid_field_name(std::string_view name) noexcept {
     if (name.empty()) {
         return false;
@@ -268,8 +275,15 @@ Result<ChunkDecodeProgress> ChunkedDecoder::process(
         case Stage::SizeLine: {
             const std::size_t line_end = input.find("\r\n", cursor);
             if (line_end == std::string::npos) {
+                if (input.size() - cursor > limits_.max_chunk_line_bytes) {
+                    return Error{ErrorCode::ResponseLimitExceeded};
+                }
                 consume_prefix(input, cursor);
                 return ChunkDecodeProgress::NeedMore;
+            }
+
+            if (line_end - cursor > limits_.max_chunk_line_bytes) {
+                return Error{ErrorCode::ResponseLimitExceeded};
             }
 
             const std::string_view line{
@@ -278,6 +292,11 @@ Result<ChunkDecodeProgress> ChunkedDecoder::process(
             auto size = parse_chunk_size(line);
             if (!size) {
                 return size.error();
+            }
+
+            if (size.value() != 0
+                && would_exceed(output.size(), size.value(), limits_.max_body_bytes)) {
+                return Error{ErrorCode::ResponseLimitExceeded};
             }
 
             cursor = line_end + 2;
@@ -321,9 +340,25 @@ Result<ChunkDecodeProgress> ChunkedDecoder::process(
         case Stage::Trailers: {
             const std::size_t line_end = input.find("\r\n", cursor);
             if (line_end == std::string::npos) {
+                const std::size_t pending = input.size() - cursor;
+                if (would_exceed(
+                        trailer_bytes_seen_,
+                        pending,
+                        limits_.max_trailer_bytes)) {
+                    return Error{ErrorCode::ResponseLimitExceeded};
+                }
                 consume_prefix(input, cursor);
                 return ChunkDecodeProgress::NeedMore;
             }
+
+            const std::size_t line_bytes = line_end - cursor + 2;
+            if (would_exceed(
+                    trailer_bytes_seen_,
+                    line_bytes,
+                    limits_.max_trailer_bytes)) {
+                return Error{ErrorCode::ResponseLimitExceeded};
+            }
+            trailer_bytes_seen_ += line_bytes;
 
             const std::string_view line{
                 input.data() + cursor,
