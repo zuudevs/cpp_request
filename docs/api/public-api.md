@@ -32,6 +32,7 @@ The v1 public surface consists primarily of:
 - `Client`
 - `Request`
 - `Response`
+- `ResponseLimits`
 - `Headers`
 - `Url`
 - `Error`
@@ -44,6 +45,7 @@ classDiagram
     class Client
     class Request
     class Response
+    class ResponseLimits
     class Headers
     class Url
     class Error
@@ -51,6 +53,7 @@ classDiagram
 
     Client --> Request : executes
     Client --> Response : returns
+    Client --> ResponseLimits : configures
     Request --> Headers : contains
     Request --> Url : targets
     Response --> Headers : contains
@@ -68,6 +71,7 @@ Responsibilities:
 - retain reusable connection state,
 - retain client-level timeout configuration,
 - retain redirect configuration,
+- retain response resource-limit configuration,
 - execute sequential HTTP requests,
 - expose convenience member functions for common methods.
 
@@ -75,6 +79,13 @@ Conceptual interface:
 
 ```cpp
 namespace cpp_request {
+
+struct ResponseLimits {
+    std::size_t max_head_bytes;
+    std::size_t max_body_bytes;
+    std::size_t max_chunk_line_bytes;
+    std::size_t max_trailer_bytes;
+};
 
 class Client {
 public:
@@ -95,6 +106,9 @@ public:
 
     void set_follow_redirects(bool enabled);
     void set_max_redirects(std::size_t count);
+
+    void set_response_limits(ResponseLimits limits) noexcept;
+    const ResponseLimits& response_limits() const noexcept;
 };
 
 } // namespace cpp_request
@@ -125,6 +139,19 @@ Relative `Location` values are resolved against the current effective request UR
 Cross-origin redirects do not forward caller-supplied `Host`, `Authorization`, `Proxy-Authorization`, or `Cookie` fields. Once these fields are removed during a redirect chain they are not automatically restored if a later hop returns to the original origin.
 
 Redirects requiring HTTPS/TLS or another unsupported scheme fail with a structured redirect error rather than being followed.
+
+### Response resource limits
+
+Because v1 responses are fully memory-resident, `Client` applies finite response parsing limits by default:
+
+- response head: 64 KiB,
+- decoded body: 64 MiB,
+- chunk-size line: 8 KiB,
+- chunked trailer section: 64 KiB.
+
+Callers may replace the full configuration with `set_response_limits()`. Exceeding a configured limit returns `ErrorCode::ResponseLimitExceeded` and the active connection is not retained for reuse.
+
+Zero is a real limit rather than an unlimited sentinel. Full enforcement details are defined in `response-limits.md`.
 
 ---
 
@@ -366,6 +393,7 @@ Expected categories include:
 - send failure,
 - receive failure,
 - malformed HTTP response,
+- response resource-limit failure,
 - redirect failure.
 
 ---
