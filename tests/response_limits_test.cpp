@@ -7,6 +7,8 @@
 #include <cpp_request/request.hpp>
 #include <cpp_request/response_limits.hpp>
 
+#include <utility>
+
 namespace {
 
 using cpp_request::Client;
@@ -39,6 +41,29 @@ TEST(ResponseLimitsTest, ClientStoresConfiguredLimits) {
     EXPECT_EQ(client.response_limits().max_body_bytes, 2048u);
     EXPECT_EQ(client.response_limits().max_chunk_line_bytes, 128u);
     EXPECT_EQ(client.response_limits().max_trailer_bytes, 512u);
+}
+
+TEST(ResponseLimitsTest, ClientMovePreservesConfiguredLimits) {
+    Client source;
+    ResponseLimits limits;
+    limits.max_head_bytes = 111;
+    limits.max_body_bytes = 222;
+    limits.max_chunk_line_bytes = 333;
+    limits.max_trailer_bytes = 444;
+    source.set_response_limits(limits);
+
+    Client moved{std::move(source)};
+    EXPECT_EQ(moved.response_limits().max_head_bytes, 111u);
+    EXPECT_EQ(moved.response_limits().max_body_bytes, 222u);
+    EXPECT_EQ(moved.response_limits().max_chunk_line_bytes, 333u);
+    EXPECT_EQ(moved.response_limits().max_trailer_bytes, 444u);
+
+    Client assigned;
+    assigned = std::move(moved);
+    EXPECT_EQ(assigned.response_limits().max_head_bytes, 111u);
+    EXPECT_EQ(assigned.response_limits().max_body_bytes, 222u);
+    EXPECT_EQ(assigned.response_limits().max_chunk_line_bytes, 333u);
+    EXPECT_EQ(assigned.response_limits().max_trailer_bytes, 444u);
 }
 
 TEST(ResponseLimitsTest, RejectsOversizedResponseHeadBeforeTerminator) {
