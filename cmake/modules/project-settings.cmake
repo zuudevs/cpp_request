@@ -1,5 +1,6 @@
 include_guard(GLOBAL)
 
+include(GNUInstallDirs)
 include(warnings)
 include(sanitizers)
 include(optimizations)
