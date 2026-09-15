@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -73,7 +74,6 @@ public:
 
     ~LoopbackBenchmarkServer() {
         stop_.store(true, std::memory_order_relaxed);
-        listener_.close();
         if (worker_.joinable()) {
             worker_.join();
         }
