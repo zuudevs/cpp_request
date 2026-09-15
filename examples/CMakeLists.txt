@@ -1,0 +1,3 @@
+cpp_request_add_example(cpp_request_example_get get.cpp)
+cpp_request_add_example(cpp_request_example_post post.cpp)
+cpp_request_add_example(cpp_request_example_configured_client configured_client.cpp)
