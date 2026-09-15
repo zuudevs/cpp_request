@@ -1,6 +1,8 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
+#include <string>
 #include <string_view>
 
 #include <cpp_request/request.hpp>
@@ -12,6 +14,12 @@ namespace cpp_request {
 class Client final {
 public:
     Client() noexcept = default;
+    ~Client() noexcept;
+
+    Client(const Client&) = delete;
+    Client& operator=(const Client&) = delete;
+    Client(Client&& other) noexcept;
+    Client& operator=(Client&& other) noexcept;
 
     [[nodiscard]] Result<Response> request(const Request& request);
 
@@ -41,6 +49,13 @@ public:
     }
 
 private:
+    void close_reusable_connection() noexcept;
+
+    std::uintptr_t reusable_socket_token_{0};
+    bool has_reusable_connection_{false};
+    std::string reusable_host_;
+    std::uint16_t reusable_port_{0};
+
     std::chrono::milliseconds connect_timeout_{5000};
     std::chrono::milliseconds read_timeout_{30000};
     std::chrono::milliseconds write_timeout_{30000};
