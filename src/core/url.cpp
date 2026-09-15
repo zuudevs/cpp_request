@@ -1,12 +1,26 @@
 #include <cpp_request/url.hpp>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
-#include <cctype>
+#include <cstddef>
 #include <limits>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
 
 namespace cpp_request {
 namespace {
+
+[[nodiscard]] constexpr char ascii_lower(char ch) noexcept {
+    return ch >= 'A' && ch <= 'Z'
+        ? static_cast<char>(ch + ('a' - 'A'))
+        : ch;
+}
 
 [[nodiscard]] bool ascii_iequals(std::string_view lhs, std::string_view rhs) noexcept {
     if (lhs.size() != rhs.size()) {
@@ -14,9 +28,7 @@ namespace {
     }
 
     for (std::size_t i = 0; i < lhs.size(); ++i) {
-        const auto a = static_cast<unsigned char>(lhs[i]);
-        const auto b = static_cast<unsigned char>(rhs[i]);
-        if (std::tolower(a) != std::tolower(b)) {
+        if (ascii_lower(lhs[i]) != ascii_lower(rhs[i])) {
             return false;
         }
     }
@@ -30,6 +42,44 @@ namespace {
         }
     }
     return false;
+}
+
+[[nodiscard]] constexpr bool is_hex_digit(char ch) noexcept {
+    return (ch >= '0' && ch <= '9')
+        || (ch >= 'A' && ch <= 'F')
+        || (ch >= 'a' && ch <= 'f');
+}
+
+[[nodiscard]] bool valid_percent_escapes(std::string_view text) noexcept {
+    for (std::size_t index = 0; index < text.size(); ++index) {
+        if (text[index] != '%') {
+            continue;
+        }
+
+        if (index + 2 >= text.size()
+            || !is_hex_digit(text[index + 1])
+            || !is_hex_digit(text[index + 2])) {
+            return false;
+        }
+        index += 2;
+    }
+    return true;
+}
+
+[[nodiscard]] bool valid_ipv6_literal(std::string_view text) noexcept {
+    if (text.empty() || text.size() >= 64 || text.find('%') != std::string_view::npos) {
+        return false;
+    }
+
+    std::array<char, 64> buffer{};
+    std::copy(text.begin(), text.end(), buffer.begin());
+    std::array<unsigned char, 16> address{};
+
+#ifdef _WIN32
+    return ::InetPtonA(AF_INET6, buffer.data(), address.data()) == 1;
+#else
+    return ::inet_pton(AF_INET6, buffer.data(), address.data()) == 1;
+#endif
 }
 
 [[nodiscard]] Result<std::uint16_t> parse_port(std::string_view text) noexcept {
@@ -76,7 +126,7 @@ Result<Url> Url::parse(std::string_view input) {
         result.storage_.begin(),
         result.storage_.begin() + static_cast<std::ptrdiff_t>(scheme_separator),
         result.storage_.begin(),
-        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        [](char ch) { return ascii_lower(ch); });
 
     result.scheme_begin_ = 0;
     result.scheme_size_ = scheme_separator;
@@ -94,6 +144,10 @@ Result<Url> Url::parse(std::string_view input) {
         return Error{ErrorCode::InvalidUrl};
     }
 
+    if (!valid_percent_escapes(std::string_view{result.storage_}.substr(authority_end))) {
+        return Error{ErrorCode::InvalidUrl};
+    }
+
     const std::string_view authority{
         result.storage_.data() + authority_begin,
         authority_end - authority_begin};
@@ -105,6 +159,11 @@ Result<Url> Url::parse(std::string_view input) {
     if (authority.front() == '[') {
         const std::size_t closing = authority.find(']');
         if (closing == std::string_view::npos || closing == 1) {
+            return Error{ErrorCode::InvalidUrl};
+        }
+
+        const std::string_view ipv6 = authority.substr(1, closing - 1);
+        if (!valid_ipv6_literal(ipv6)) {
             return Error{ErrorCode::InvalidUrl};
         }
 
@@ -125,6 +184,11 @@ Result<Url> Url::parse(std::string_view input) {
             result.has_explicit_port_ = true;
         }
     } else {
+        if (authority.find('[') != std::string_view::npos
+            || authority.find(']') != std::string_view::npos) {
+            return Error{ErrorCode::InvalidUrl};
+        }
+
         const std::size_t colon = authority.rfind(':');
         if (colon != std::string_view::npos) {
             if (authority.find(':') != colon) {
