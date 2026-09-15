@@ -1,4 +1,4 @@
-include(${CMAKE_SOURCE_DIR}/cmake/packages/google-test.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/packages/google-test.cmake)
 find_package(Threads REQUIRED)
 
 add_executable(cpp_request_tests
@@ -24,7 +24,7 @@ add_executable(cpp_request_tests
 
 target_include_directories(cpp_request_tests
 	PRIVATE
-		${CMAKE_SOURCE_DIR}/src
+		${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(cpp_request_tests
@@ -41,3 +41,13 @@ endif()
 target_compile_features(cpp_request_tests PRIVATE cxx_std_17)
 
 gtest_discover_tests(cpp_request_tests)
+
+add_test(
+	NAME PackageConsumer.InstallAndUse
+	COMMAND
+		${CMAKE_COMMAND}
+		-DCPP_REQUEST_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+		-DCPP_REQUEST_BINARY_DIR=${PROJECT_BINARY_DIR}
+		-DCPP_REQUEST_CONFIG=$<CONFIG>
+		-P ${CMAKE_CURRENT_SOURCE_DIR}/package_consumer_test.cmake
+)
