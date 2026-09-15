@@ -10,6 +10,7 @@ add_executable(cpp_request_tests
 	${CMAKE_CURRENT_SOURCE_DIR}/response_parser_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/response_upgrade_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/client_test.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/client_reuse_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/native_socket_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/resolver_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/tcp_connection_test.cpp
