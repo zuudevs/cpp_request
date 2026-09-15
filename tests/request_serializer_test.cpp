@@ -106,6 +106,30 @@ TEST(RequestSerializerTest, AddsContentLengthForNonEmptyBodyWithoutCopyingBody) 
     EXPECT_EQ(result.value().body.data(), body.data());
 }
 
+TEST(RequestSerializerTest, AddsZeroContentLengthForEmptyContentMethods) {
+    const Method methods[] = {Method::Post, Method::Put, Method::Patch};
+
+    for (const Method method : methods) {
+        Request request{method, "http://example.com/empty"};
+        auto result = serialize_request(request);
+
+        ASSERT_TRUE(result);
+        EXPECT_NE(result.value().head.find("Content-Length: 0\r\n"), std::string::npos);
+    }
+}
+
+TEST(RequestSerializerTest, DoesNotAddZeroContentLengthForEmptyGetHeadOrDelete) {
+    const Method methods[] = {Method::Get, Method::Head, Method::Delete};
+
+    for (const Method method : methods) {
+        Request request{method, "http://example.com/empty"};
+        auto result = serialize_request(request);
+
+        ASSERT_TRUE(result);
+        EXPECT_EQ(result.value().head.find("Content-Length:"), std::string::npos);
+    }
+}
+
 TEST(RequestSerializerTest, AcceptsMatchingCallerContentLength) {
     Request request{Method::Post, "http://example.com/upload"};
     request.set_body("abc");
