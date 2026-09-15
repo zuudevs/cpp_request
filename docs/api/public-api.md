@@ -120,7 +120,7 @@ The v1 method/body policy is:
 
 When a body is dropped, body-specific request headers such as `Content-Length`, `Transfer-Encoding`, and `Content-Type` are not forwarded to the redirected request.
 
-Relative `Location` values are resolved against the current request URL, including absolute-path, relative-path, query-only, and scheme-relative forms. URL fragments are never sent in the HTTP request target.
+Relative `Location` values are resolved against the current effective request URL, including query parameters appended through `Request::add_query_param()`, and including absolute-path, relative-path, query-only, fragment-only, and scheme-relative forms. URL fragments are never sent in the HTTP request target.
 
 Cross-origin redirects do not forward caller-supplied `Host`, `Authorization`, `Proxy-Authorization`, or `Cookie` fields. Once these fields are removed during a redirect chain they are not automatically restored if a later hop returns to the original origin.
 
@@ -148,6 +148,11 @@ enum class Method {
 
 class Request {
 public:
+    struct QueryParam {
+        std::string name;
+        std::string value;
+    };
+
     Request(Method method, std::string_view url);
 
     Method method() const noexcept;
@@ -158,16 +163,38 @@ public:
 
     void set_body(std::string_view body) noexcept;
     std::string_view body() const noexcept;
+
+    void add_query_param(std::string_view name, std::string_view value);
+    const std::vector<QueryParam>& query_params() const noexcept;
 };
 
 } // namespace cpp_request
 ```
 
-### Borrowed request data
+### Borrowed and owned request data
 
-`Request` may hold non-owning views for URL and body data. Their lifetime requirements are defined in `lifetime.md`.
+The base URL and body may remain non-owning views. Their lifetime requirements are defined in `lifetime.md`.
+
+Headers and query parameters added through the request object own their copied text independently from the caller's source buffers.
 
 The v1 design does not require request-body ownership or request streaming.
+
+### Query parameter behavior
+
+`add_query_param(name, value)` appends one parameter in insertion order. Repeated names are preserved rather than deduplicated.
+
+For request serialization:
+
+- an existing raw query already present in the URL is preserved,
+- appended parameters are added after that raw query,
+- parameter names and values are percent-encoded byte-for-byte,
+- URI unreserved bytes (`ALPHA`, `DIGIT`, `-`, `.`, `_`, `~`) remain unescaped,
+- spaces are encoded as `%20`, not `+`,
+- reserved characters such as `/`, `?`, `&`, and `=` are encoded inside appended names/values,
+- UTF-8 input is percent-encoded by its UTF-8 bytes,
+- repeated parameters preserve insertion order.
+
+The raw URL parser does not silently repair malformed percent escapes. A raw path or query containing `%` must contain a complete `%HH` escape using hexadecimal digits.
 
 ---
 
@@ -279,6 +306,8 @@ public:
 ```
 
 For v1, only `http://` is supported. `https://` must fail explicitly.
+
+Raw path/query percent escapes must be syntactically complete `%HH` sequences. Bracketed hosts are accepted only when they contain a valid numeric IPv6 literal. IPv6 zone identifiers are not part of the v1 URL contract.
 
 Implementation may own normalized URL storage internally when necessary; callers must not depend on the exact storage representation.
 
