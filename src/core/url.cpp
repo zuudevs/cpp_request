@@ -144,7 +144,9 @@ Result<Url> Url::parse(std::string_view input) {
         return Error{ErrorCode::InvalidUrl};
     }
 
-    if (!valid_percent_escapes(std::string_view{result.storage_}.substr(authority_end))) {
+    if (!valid_percent_escapes(std::string_view{
+            result.storage_.data() + authority_end,
+            result.storage_.size() - authority_end})) {
         return Error{ErrorCode::InvalidUrl};
     }
 
@@ -152,7 +154,8 @@ Result<Url> Url::parse(std::string_view input) {
         result.storage_.data() + authority_begin,
         authority_end - authority_begin};
 
-    if (authority.find('@') != std::string_view::npos) {
+    if (authority.find('@') != std::string_view::npos
+        || authority.find('%') != std::string_view::npos) {
         return Error{ErrorCode::InvalidUrl};
     }
 
