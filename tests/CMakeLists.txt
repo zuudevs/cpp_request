@@ -2,6 +2,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/packages/google-test.cmake)
 find_package(Threads REQUIRED)
 
 add_executable(cpp_request_tests
+	${CMAKE_CURRENT_SOURCE_DIR}/result_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/url_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/headers_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/request_test.cpp
