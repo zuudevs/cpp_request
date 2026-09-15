@@ -10,9 +10,9 @@ project(
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 
 include(options)
-include(project-settings)
-
 cpp_request_setup_options()
+
+include(project-settings)
 cpp_request_setup_project()
 
 add_subdirectory(src)

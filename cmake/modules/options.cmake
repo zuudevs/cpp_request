@@ -6,10 +6,15 @@ function(cpp_request_setup_options)
 		set(_cpp_request_top_level_default ON)
 	endif()
 
+	set(_cpp_request_test_default ${_cpp_request_top_level_default})
+	if(DEFINED BUILD_TESTING)
+		set(_cpp_request_test_default ${BUILD_TESTING})
+	endif()
+
 	option(
 		CPP_REQUEST_BUILD_TESTS
 		"Build cpp_request tests"
-		${_cpp_request_top_level_default}
+		${_cpp_request_test_default}
 	)
 	option(
 		CPP_REQUEST_BUILD_BENCHMARKS
