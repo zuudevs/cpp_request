@@ -261,13 +261,14 @@ struct FramingInfo {
         }
 
         ++framing.transfer_encoding_fields;
+        const std::string_view field_value{field.value};
         std::size_t token_begin = 0;
-        while (token_begin <= field.value.size()) {
-            const std::size_t comma = field.value.find(',', token_begin);
+        while (token_begin <= field_value.size()) {
+            const std::size_t comma = field_value.find(',', token_begin);
             const std::size_t token_end = comma == std::string_view::npos
-                ? field.value.size()
+                ? field_value.size()
                 : comma;
-            const std::string_view token = trim_ows(field.value.substr(
+            const std::string_view token = trim_ows(field_value.substr(
                 token_begin,
                 token_end - token_begin));
             if (token.empty()) {
