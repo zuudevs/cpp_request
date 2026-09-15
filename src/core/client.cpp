@@ -1,5 +1,6 @@
 #include <cpp_request/client.hpp>
 
+#include "http/redirect.hpp"
 #include "http/request_serializer.hpp"
 #include "http/response_parser.hpp"
 #include "net/resolver.hpp"
@@ -10,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -85,6 +87,41 @@ namespace {
     return stored_port == port && ascii_iequals(stored_host, host);
 }
 
+[[nodiscard]] bool same_origin(const Url& lhs, const Url& rhs) noexcept {
+    return lhs.port() == rhs.port()
+        && ascii_iequals(lhs.host(), rhs.host());
+}
+
+[[nodiscard]] bool is_cross_origin_sensitive_header(std::string_view name) noexcept {
+    return ascii_iequals(name, "Host")
+        || ascii_iequals(name, "Authorization")
+        || ascii_iequals(name, "Proxy-Authorization")
+        || ascii_iequals(name, "Cookie");
+}
+
+[[nodiscard]] bool is_entity_header_removed_with_body(std::string_view name) noexcept {
+    return ascii_iequals(name, "Content-Length")
+        || ascii_iequals(name, "Transfer-Encoding")
+        || ascii_iequals(name, "Content-Type");
+}
+
+[[nodiscard]] Headers redirected_headers(
+    const Headers& source,
+    bool cross_origin,
+    bool drop_body) {
+    Headers result;
+    for (const auto& field : source) {
+        if (cross_origin && is_cross_origin_sensitive_header(field.name)) {
+            continue;
+        }
+        if (drop_body && is_entity_header_removed_with_body(field.name)) {
+            continue;
+        }
+        result.add(field.name, field.value);
+    }
+    return result;
+}
+
 [[nodiscard]] std::uintptr_t encode_socket_handle(
     detail::platform::NativeSocketHandle handle) noexcept {
     return static_cast<std::uintptr_t>(handle);
@@ -130,6 +167,8 @@ Client::Client(Client&& other) noexcept
       has_reusable_connection_(std::exchange(other.has_reusable_connection_, false)),
       reusable_host_(std::move(other.reusable_host_)),
       reusable_port_(std::exchange(other.reusable_port_, 0)),
+      follow_redirects_(other.follow_redirects_),
+      max_redirects_(other.max_redirects_),
       connect_timeout_(other.connect_timeout_),
       read_timeout_(other.read_timeout_),
       write_timeout_(other.write_timeout_) {}
@@ -145,6 +184,8 @@ Client& Client::operator=(Client&& other) noexcept {
     has_reusable_connection_ = std::exchange(other.has_reusable_connection_, false);
     reusable_host_ = std::move(other.reusable_host_);
     reusable_port_ = std::exchange(other.reusable_port_, 0);
+    follow_redirects_ = other.follow_redirects_;
+    max_redirects_ = other.max_redirects_;
     connect_timeout_ = other.connect_timeout_;
     read_timeout_ = other.read_timeout_;
     write_timeout_ = other.write_timeout_;
@@ -165,6 +206,92 @@ void Client::close_reusable_connection() noexcept {
 }
 
 Result<Response> Client::request(const Request& request_value) {
+    auto response_result = execute_once(request_value);
+    if (!response_result) {
+        return response_result.error();
+    }
+
+    Response response = std::move(response_result).value();
+    if (!follow_redirects_
+        || !detail::http::is_redirect_status(response.status_code())) {
+        return response;
+    }
+
+    std::string current_url{request_value.url()};
+    Method current_method = request_value.method();
+    Headers current_headers = request_value.headers();
+    std::string_view current_body = request_value.body();
+    std::size_t redirects_followed = 0;
+
+    while (detail::http::is_redirect_status(response.status_code())) {
+        if (redirects_followed >= max_redirects_) {
+            return Error{ErrorCode::RedirectLimitExceeded};
+        }
+
+        if (!response.headers().contains("Location")) {
+            return Error{ErrorCode::MissingRedirectLocation};
+        }
+        const std::string_view location = response.headers().get("Location");
+        if (location.empty()) {
+            return Error{ErrorCode::MissingRedirectLocation};
+        }
+
+        auto base_result = Url::parse(current_url);
+        if (!base_result) {
+            return base_result.error();
+        }
+        Url base = std::move(base_result).value();
+
+        auto next_url_result = detail::http::resolve_redirect_location(base, location);
+        if (!next_url_result) {
+            return next_url_result.error();
+        }
+        std::string next_url = std::move(next_url_result).value();
+
+        auto next_parsed_result = Url::parse(next_url);
+        if (!next_parsed_result) {
+            if (next_parsed_result.error().code == ErrorCode::UnsupportedScheme) {
+                return Error{ErrorCode::UnsupportedRedirectScheme};
+            }
+            return next_parsed_result.error();
+        }
+        Url next_parsed = std::move(next_parsed_result).value();
+
+        const auto behavior = detail::http::redirect_behavior(
+            response.status_code(),
+            current_method);
+        const bool cross_origin = !same_origin(base, next_parsed);
+        const bool drop_body = !behavior.preserve_body;
+
+        Headers next_headers = redirected_headers(
+            current_headers,
+            cross_origin,
+            drop_body);
+        const std::string_view next_body = behavior.preserve_body
+            ? current_body
+            : std::string_view{};
+
+        current_url = std::move(next_url);
+        current_method = behavior.method;
+        current_headers = std::move(next_headers);
+        current_body = next_body;
+        ++redirects_followed;
+
+        Request redirected{current_method, current_url};
+        redirected.headers() = current_headers;
+        redirected.set_body(current_body);
+
+        auto redirected_result = execute_once(redirected);
+        if (!redirected_result) {
+            return redirected_result.error();
+        }
+        response = std::move(redirected_result).value();
+    }
+
+    return response;
+}
+
+Result<Response> Client::execute_once(const Request& request_value) {
     auto serialized_result = detail::http::serialize_request(request_value);
     if (!serialized_result) {
         return serialized_result.error();
