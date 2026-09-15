@@ -27,6 +27,7 @@ enum class ErrorCode {
     InvalidChunkFraming,
     ConflictingMessageFraming,
     UnexpectedEof,
+    ResponseLimitExceeded,
 
     RedirectLimitExceeded,
     MissingRedirectLocation,
@@ -62,6 +63,7 @@ struct Error {
     case ErrorCode::InvalidChunkFraming: return "invalid chunk framing";
     case ErrorCode::ConflictingMessageFraming: return "conflicting HTTP message framing";
     case ErrorCode::UnexpectedEof: return "unexpected end of stream";
+    case ErrorCode::ResponseLimitExceeded: return "response resource limit exceeded";
     case ErrorCode::RedirectLimitExceeded: return "redirect limit exceeded";
     case ErrorCode::MissingRedirectLocation: return "redirect location missing";
     case ErrorCode::UnsupportedRedirectScheme: return "unsupported redirect scheme";
