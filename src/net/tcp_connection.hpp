@@ -26,6 +26,11 @@ public:
         const std::vector<Endpoint>& endpoints,
         std::chrono::milliseconds timeout);
 
+    [[nodiscard]] static TcpConnection adopt_native_handle(
+        platform::NativeSocketHandle handle) noexcept {
+        return TcpConnection{platform::NativeSocket{handle}};
+    }
+
     [[nodiscard]] Result<std::size_t> write_all(
         std::string_view data,
         std::chrono::milliseconds timeout);
@@ -41,6 +46,10 @@ public:
 
     [[nodiscard]] platform::NativeSocketHandle native_handle() const noexcept {
         return socket_.get();
+    }
+
+    [[nodiscard]] platform::NativeSocketHandle release_native_handle() noexcept {
+        return socket_.release();
     }
 
     void close() noexcept {
