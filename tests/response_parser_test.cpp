@@ -76,6 +76,35 @@ TEST(ResponseParserTest, HeadCompletesAfterHeadersAndLeavesFollowingBytesPending
     EXPECT_TRUE(parser.connection_reusable());
 }
 
+TEST(ResponseParserTest, HeadRejectsTransferEncodingAndContentLengthTogether) {
+    ResponseParser parser{Method::Head};
+
+    auto result = parser.feed(
+        "HTTP/1.1 200 OK\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Content-Length: 42\r\n"
+        "\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::ConflictingMessageFraming);
+}
+
+TEST(ResponseParserTest, NotModifiedAllowsRepresentationContentLength) {
+    ResponseParser parser{Method::Get};
+
+    auto result = parser.feed(
+        "HTTP/1.1 304 Not Modified\r\n"
+        "Content-Length: 1234\r\n"
+        "\r\n"
+        "next-response-bytes");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ResponseParseProgress::Complete);
+    EXPECT_TRUE(parser.response().body().empty());
+    EXPECT_EQ(parser.pending_bytes(), "next-response-bytes");
+    EXPECT_TRUE(parser.connection_reusable());
+}
+
 TEST(ResponseParserTest, CloseDelimitedBodyCompletesOnlyAtEof) {
     ResponseParser parser{Method::Get};
 
@@ -246,7 +275,32 @@ TEST(ResponseParserTest, ConsumesInterimResponseBeforeFinalResponse) {
     EXPECT_EQ(parser.response().body(), "ok");
 }
 
-TEST(ResponseParserTest, NoBodyStatusCompletesAtHeaders) {
+TEST(ResponseParserTest, RejectsFramingHeadersOnInterimResponse) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 100 Continue\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
+}
+
+TEST(ResponseParserTest, NoContentCompletesAtHeaders) {
+    ResponseParser parser{Method::Get};
+
+    auto result = parser.feed(
+        "HTTP/1.1 204 No Content\r\n"
+        "\r\n");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ResponseParseProgress::Complete);
+    EXPECT_TRUE(parser.response().body().empty());
+    EXPECT_TRUE(parser.connection_reusable());
+}
+
+TEST(ResponseParserTest, RejectsContentLengthOnNoContent) {
     ResponseParser parser{Method::Get};
 
     auto result = parser.feed(
@@ -254,10 +308,118 @@ TEST(ResponseParserTest, NoBodyStatusCompletesAtHeaders) {
         "Content-Length: 0\r\n"
         "\r\n");
 
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
+}
+
+TEST(ResponseParserTest, RejectsTransferEncodingOnNoContent) {
+    ResponseParser parser{Method::Get};
+
+    auto result = parser.feed(
+        "HTTP/1.1 204 No Content\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "0\r\n\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
+}
+
+TEST(ResponseParserTest, SwitchingProtocolsRejectsFramingHeaders) {
+    ResponseParser parser{Method::Get};
+
+    auto result = parser.feed(
+        "HTTP/1.1 101 Switching Protocols\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
+}
+
+TEST(ResponseParserTest, ResetContentWithZeroContentLengthIsReusable) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "Content-Length: 0\r\n"
+        "\r\n");
+
     ASSERT_TRUE(result);
     EXPECT_EQ(result.value(), ResponseParseProgress::Complete);
     EXPECT_TRUE(parser.response().body().empty());
     EXPECT_TRUE(parser.connection_reusable());
+}
+
+TEST(ResponseParserTest, ResetContentWithoutFramingCompletesAtEofAndIsNotReusable) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "\r\n");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ResponseParseProgress::NeedMore);
+    EXPECT_FALSE(parser.complete());
+
+    auto eof = parser.finish_eof();
+    ASSERT_TRUE(eof);
+    EXPECT_EQ(eof.value(), ResponseParseProgress::Complete);
+    EXPECT_TRUE(parser.response().body().empty());
+    EXPECT_FALSE(parser.connection_reusable());
+}
+
+TEST(ResponseParserTest, ResetContentRejectsNonZeroContentLength) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "Content-Length: 1\r\n"
+        "\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::InvalidContentLength);
+}
+
+TEST(ResponseParserTest, ResetContentAllowsZeroChunkedFraming) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "0\r\n\r\n");
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ResponseParseProgress::Complete);
+    EXPECT_TRUE(parser.response().body().empty());
+    EXPECT_TRUE(parser.connection_reusable());
+}
+
+TEST(ResponseParserTest, ResetContentRejectsChunkedContent) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+        "1\r\nx\r\n"
+        "0\r\n\r\n");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
+}
+
+TEST(ResponseParserTest, ResetContentRejectsCloseDelimitedContent) {
+    ResponseParser parser{Method::Post};
+
+    auto result = parser.feed(
+        "HTTP/1.1 205 Reset Content\r\n"
+        "\r\n"
+        "unexpected");
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::MalformedResponse);
 }
 
 TEST(ResponseParserTest, PrematureEofForContentLengthIsError) {

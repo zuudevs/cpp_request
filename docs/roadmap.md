@@ -252,49 +252,68 @@ Exit criteria: **complete**.
 
 Goal: close known correctness gaps before treating the API as release-candidate quality.
 
-## 1. `Result<T>` hardening — 🚧 current work
+## 1. `Result<T>` hardening — ✅ complete
 
-Required work:
+Completed work:
 
-- eliminate wrong-state type-based `std::get` behavior hidden behind `noexcept`.
-- use explicit discriminant/index-based state access.
-- keep accessor misuse as a documented programmer precondition violation rather than a network error.
-- make `Result<Error>` capable of representing both success and failure unambiguously.
-- preserve move-only payload support.
-- keep `std::variant` as the baseline representation until measurement justifies custom storage.
-- keep `Result<void>` deferred until a concrete operation requires it.
+- replaced type-based state lookup with explicit variant-index/discriminant access.
+- removed hidden wrong-state `std::bad_variant_access` paths from `noexcept` accessors.
+- retained accessor misuse as a documented programmer precondition violation.
+- added explicit success/failure factories.
+- made `Result<Error>` capable of representing success and failure unambiguously.
+- preserved move-only payload support.
+- retained `std::variant` as the baseline representation until measurement justifies custom storage.
+- kept `Result<void>` deferred until a concrete operation requires it.
+
+Historical reference:
+
+- PR #22 — `Result<T>` state hardening
+
+Exit criteria: **complete**.
+
+## 2. URL and query correctness — ✅ complete
+
+Completed work:
+
+- added owned `Request::add_query_param(name, value)` parameters.
+- percent-encoded appended query parameters.
+- preserved repeated query keys and insertion order.
+- preserved an existing raw URL query before appended parameters.
+- validated raw `%HH` escapes.
+- replaced locale-sensitive scheme handling with ASCII-only normalization.
+- strengthened bracketed IPv6 literals using numeric IPv6 validation.
+- explicitly rejected unsupported v1 authority encodings / zone identifiers.
+- kept redirect base URL resolution consistent with the effective serialized request URL.
+
+Historical reference:
+
+- PR #23 — URL parsing and query parameter hardening
+
+Exit criteria: **complete**.
+
+## 3. HTTP correctness review — 🚧 current work
+
+Current hardening scope:
+
+- enforce safe response framing precedence.
+- reject `Transfer-Encoding` + `Content-Length` ambiguity before connection reuse.
+- reject framing fields where `1xx` / `204` semantics forbid them.
+- keep `HEAD` / `304` header-terminated while preserving allowed representation metadata.
+- correct `205 Reset Content` framing so unframed responses are close-delimited rather than incorrectly reusable.
+- reject actual content in a 205 response.
+- validate chunk extension token / quoted-string grammar instead of accepting arbitrary printable bytes.
+- retain trailer validation and reject framing-critical trailer fields.
+- emit `Content-Length: 0` for empty POST/PUT/PATCH requests while leaving empty GET/HEAD/DELETE unchanged.
+- document timeout boundaries: connect budget across endpoint attempts, one write budget across request transmission, read timeout per wait for response progress.
+- preserve context-sensitive EOF semantics: incomplete explicit framing is `UnexpectedEof`; valid close-delimited EOF completes normally; timeout never masquerades as EOF.
 
 Exit for this substep:
 
-- dedicated `Result<T>` unit coverage passes on all CI matrices.
-- `Result<Error>` success and failure are distinguishable.
-- normal existing implicit error propagation remains source-compatible.
+- framing/status/chunk edge cases have deterministic parser tests.
+- serializer framing policy is covered by tests.
+- no reviewed HTTP message-boundary ambiguity remains known.
 
-## 2. URL and query correctness — ⏳ next
-
-REQ-HTTP-004 requires query behavior beyond merely preserving an already encoded raw query.
-
-Planned work:
-
-- define the v1 query-parameter API or explicitly refine the requirement if raw URL input is the intended contract.
-- percent-encode reserved characters where required.
-- validate percent escapes.
-- strengthen bracketed IPv6 literal validation.
-- add query/encoding tests.
-
-## 3. HTTP correctness review — ⏳
-
-Planned review:
-
-- response framing precedence and duplicate framing fields.
-- status/no-body edge cases.
-- header syntax edge cases.
-- chunk extension/trailer correctness.
-- request serializer Host/Content-Length policy.
-- timeout boundary semantics.
-- EOF classification.
-
-## 4. Resource-bound review — ⏳
+## 4. Resource-bound review — ⏳ next
 
 Because response bodies are memory-resident in v1, document or introduce practical defensive limits where appropriate:
 

@@ -22,6 +22,12 @@ namespace {
     return {};
 }
 
+[[nodiscard]] constexpr bool method_has_content_semantics(Method method) noexcept {
+    return method == Method::Post
+        || method == Method::Put
+        || method == Method::Patch;
+}
+
 [[nodiscard]] constexpr char ascii_lower(char ch) noexcept {
     return ch >= 'A' && ch <= 'Z'
         ? static_cast<char>(ch + ('a' - 'A'))
@@ -299,7 +305,8 @@ Result<SerializedRequest> serialize_request(const Request& request) {
         serialized.head.append("\r\n");
     }
 
-    if (!request.body().empty() && content_length_count == 0) {
+    if (content_length_count == 0
+        && (!request.body().empty() || method_has_content_semantics(request.method()))) {
         serialized.head.append("Content-Length: ");
         append_decimal(serialized.head, request.body().size());
         serialized.head.append("\r\n");

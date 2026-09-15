@@ -18,6 +18,15 @@ struct ParsedHead {
     Headers headers;
 };
 
+struct FramingInfo {
+    std::size_t content_length_count{0};
+    std::size_t content_length{0};
+    std::size_t transfer_encoding_fields{0};
+    std::size_t transfer_encoding_tokens{0};
+    bool transfer_encoding_is_chunked{true};
+    bool connection_close_requested{false};
+};
+
 [[nodiscard]] constexpr char ascii_lower(char ch) noexcept {
     return ch >= 'A' && ch <= 'Z'
         ? static_cast<char>(ch + ('a' - 'A'))
@@ -230,15 +239,76 @@ struct ParsedHead {
     return parsed.ec == std::errc{} && parsed.ptr == last;
 }
 
-[[nodiscard]] bool is_no_body_status(int status_code) noexcept {
-    return status_code == 101
+[[nodiscard]] Result<FramingInfo> analyze_framing(const Headers& headers) {
+    FramingInfo framing;
+
+    for (const auto& field : headers) {
+        if (ascii_iequals(field.name, "Connection")
+            && contains_token(field.value, "close")) {
+            framing.connection_close_requested = true;
+        }
+
+        if (ascii_iequals(field.name, "Content-Length")) {
+            ++framing.content_length_count;
+            if (!parse_content_length(field.value, framing.content_length)) {
+                return Error{ErrorCode::InvalidContentLength};
+            }
+            continue;
+        }
+
+        if (!ascii_iequals(field.name, "Transfer-Encoding")) {
+            continue;
+        }
+
+        ++framing.transfer_encoding_fields;
+        const std::string_view field_value{field.value};
+        std::size_t token_begin = 0;
+        while (token_begin <= field_value.size()) {
+            const std::size_t comma = field_value.find(',', token_begin);
+            const std::size_t token_end = comma == std::string_view::npos
+                ? field_value.size()
+                : comma;
+            const std::string_view token = trim_ows(field_value.substr(
+                token_begin,
+                token_end - token_begin));
+            if (token.empty()) {
+                return Error{ErrorCode::MalformedResponse};
+            }
+
+            ++framing.transfer_encoding_tokens;
+            if (!ascii_iequals(token, "chunked")) {
+                framing.transfer_encoding_is_chunked = false;
+            }
+
+            if (comma == std::string_view::npos) {
+                break;
+            }
+            token_begin = comma + 1;
+        }
+    }
+
+    if (framing.content_length_count > 1) {
+        return Error{ErrorCode::InvalidContentLength};
+    }
+
+    return framing;
+}
+
+[[nodiscard]] bool is_header_terminated_response(
+    Method request_method,
+    int status_code) noexcept {
+    return request_method == Method::Head
+        || status_code == 101
         || status_code == 204
-        || status_code == 205
         || status_code == 304;
 }
 
 [[nodiscard]] bool is_interim_status(int status_code) noexcept {
     return status_code >= 100 && status_code < 200 && status_code != 101;
+}
+
+[[nodiscard]] bool framing_header_forbidden_on_status(int status_code) noexcept {
+    return status_code == 101 || status_code == 204;
 }
 
 } // namespace
@@ -270,88 +340,79 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
             buffer_.erase(0, head_end + 4);
 
             ParsedHead head = std::move(parsed).value();
+            auto framing_result = analyze_framing(head.headers);
+            if (!framing_result) {
+                return framing_result.error();
+            }
+            const FramingInfo framing = framing_result.value();
+
             if (is_interim_status(head.status_code)) {
+                if (framing.content_length_count != 0
+                    || framing.transfer_encoding_fields != 0) {
+                    return Error{ErrorCode::MalformedResponse};
+                }
                 continue;
             }
 
             response_.status_code_ = head.status_code;
             response_.reason_ = std::move(head.reason);
             response_.headers_ = std::move(head.headers);
+            connection_close_requested_ = framing.connection_close_requested
+                || response_.status_code_ == 101;
 
-            connection_close_requested_ = response_.status_code_ == 101;
-            std::size_t content_length_count = 0;
-            std::size_t content_length = 0;
-            std::size_t transfer_encoding_fields = 0;
-            std::size_t transfer_encoding_tokens = 0;
-            bool transfer_encoding_is_chunked = true;
-
-            for (const auto& field : response_.headers_) {
-                if (ascii_iequals(field.name, "Connection")
-                    && contains_token(field.value, "close")) {
-                    connection_close_requested_ = true;
-                }
-
-                if (ascii_iequals(field.name, "Content-Length")) {
-                    ++content_length_count;
-                    if (!parse_content_length(field.value, content_length)) {
-                        return Error{ErrorCode::InvalidContentLength};
-                    }
-                    continue;
-                }
-
-                if (ascii_iequals(field.name, "Transfer-Encoding")) {
-                    ++transfer_encoding_fields;
-                    std::size_t token_begin = 0;
-                    while (token_begin <= field.value.size()) {
-                        const std::size_t comma = field.value.find(',', token_begin);
-                        const std::size_t token_end = comma == std::string_view::npos
-                            ? field.value.size()
-                            : comma;
-                        const std::string_view token = trim_ows(
-                            std::string_view{field.value.data(), field.value.size()}.substr(
-                                token_begin,
-                                token_end - token_begin));
-                        if (token.empty()) {
-                            return Error{ErrorCode::MalformedResponse};
-                        }
-                        ++transfer_encoding_tokens;
-                        if (!ascii_iequals(token, "chunked")) {
-                            transfer_encoding_is_chunked = false;
-                        }
-                        if (comma == std::string_view::npos) {
-                            break;
-                        }
-                        token_begin = comma + 1;
-                    }
-                }
+            if (framing.transfer_encoding_fields != 0
+                && framing.content_length_count != 0) {
+                return Error{ErrorCode::ConflictingMessageFraming};
             }
 
-            if (content_length_count > 1) {
-                return Error{ErrorCode::InvalidContentLength};
+            if (framing_header_forbidden_on_status(response_.status_code_)
+                && (framing.content_length_count != 0
+                    || framing.transfer_encoding_fields != 0)) {
+                return Error{ErrorCode::MalformedResponse};
             }
 
-            const bool no_body = request_method_ == Method::Head
-                || is_no_body_status(response_.status_code_);
-            if (no_body) {
+            if (is_header_terminated_response(request_method_, response_.status_code_)) {
                 stage_ = Stage::Complete;
                 return ResponseParseProgress::Complete;
             }
 
-            if (transfer_encoding_fields != 0 && content_length_count != 0) {
-                return Error{ErrorCode::ConflictingMessageFraming};
+            if (response_.status_code_ == 205) {
+                body_forbidden_ = true;
+
+                if (framing.transfer_encoding_fields != 0) {
+                    if (framing.transfer_encoding_tokens != 1
+                        || !framing.transfer_encoding_is_chunked) {
+                        return Error{ErrorCode::MalformedResponse};
+                    }
+                    stage_ = Stage::ChunkedBody;
+                    continue;
+                }
+
+                if (framing.content_length_count == 1) {
+                    if (framing.content_length != 0) {
+                        return Error{ErrorCode::InvalidContentLength};
+                    }
+                    stage_ = Stage::Complete;
+                    return ResponseParseProgress::Complete;
+                }
+
+                close_delimited_ = true;
+                stage_ = Stage::CloseDelimitedBody;
+                continue;
             }
 
-            if (transfer_encoding_fields != 0) {
-                if (transfer_encoding_tokens != 1 || !transfer_encoding_is_chunked) {
+            if (framing.transfer_encoding_fields != 0) {
+                if (framing.transfer_encoding_tokens != 1
+                    || !framing.transfer_encoding_is_chunked) {
                     return Error{ErrorCode::MalformedResponse};
                 }
                 stage_ = Stage::ChunkedBody;
                 continue;
             }
 
-            if (content_length_count == 1) {
-                content_length_remaining_ = content_length;
-                response_.body_.reserve(content_length);
+            if (framing.content_length_count == 1) {
+                content_length_remaining_ = framing.content_length;
+                response_.body_.reserve(framing.content_length);
                 if (content_length_remaining_ == 0) {
                     stage_ = Stage::Complete;
                     return ResponseParseProgress::Complete;
@@ -383,6 +444,9 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
         }
 
         case Stage::CloseDelimitedBody:
+            if (body_forbidden_ && !buffer_.empty()) {
+                return Error{ErrorCode::MalformedResponse};
+            }
             if (!buffer_.empty()) {
                 response_.body_.append(buffer_);
                 buffer_.clear();
@@ -393,6 +457,9 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
             auto decoded = chunked_decoder_.process(buffer_, response_.body_);
             if (!decoded) {
                 return decoded.error();
+            }
+            if (body_forbidden_ && !response_.body_.empty()) {
+                return Error{ErrorCode::MalformedResponse};
             }
             if (decoded.value() == ChunkDecodeProgress::NeedMore) {
                 return ResponseParseProgress::NeedMore;
@@ -410,6 +477,9 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
 Result<ResponseParseProgress> ResponseParser::finish_eof() {
     switch (stage_) {
     case Stage::CloseDelimitedBody:
+        if (body_forbidden_ && !buffer_.empty()) {
+            return Error{ErrorCode::MalformedResponse};
+        }
         if (!buffer_.empty()) {
             response_.body_.append(buffer_);
             buffer_.clear();
