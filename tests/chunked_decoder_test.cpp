@@ -51,7 +51,7 @@ TEST(ChunkedDecoderTest, HandlesOneByteAtATime) {
 TEST(ChunkedDecoderTest, ConsumesExtensionsAndTrailersAndPreservesFollowingBytes) {
     ChunkedDecoder decoder;
     std::string input =
-        "4;foo=bar\r\nWiki\r\n"
+        "4;foo=bar; note=\"hello world\"\r\nWiki\r\n"
         "0;end=yes\r\n"
         "X-Checksum: abc123\r\n"
         "X-Trace: done\r\n"
@@ -67,6 +67,21 @@ TEST(ChunkedDecoderTest, ConsumesExtensionsAndTrailersAndPreservesFollowingBytes
     EXPECT_EQ(input, "NEXT");
 }
 
+TEST(ChunkedDecoderTest, AcceptsBadWhitespaceBeforeExtensionDelimiter) {
+    ChunkedDecoder decoder;
+    std::string input =
+        "1 \t; foo=bar\r\n"
+        "x\r\n"
+        "0\r\n\r\n";
+    std::string output;
+
+    auto result = decoder.process(input, output);
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), ChunkDecodeProgress::Complete);
+    EXPECT_EQ(output, "x");
+}
+
 TEST(ChunkedDecoderTest, RejectsInvalidChunkSize) {
     ChunkedDecoder decoder;
     std::string input = "xyz\r\n";
@@ -76,6 +91,39 @@ TEST(ChunkedDecoderTest, RejectsInvalidChunkSize) {
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().code, ErrorCode::InvalidChunkSize);
+}
+
+TEST(ChunkedDecoderTest, RejectsEmptyChunkExtensionName) {
+    ChunkedDecoder decoder;
+    std::string input = "1;\r\nx\r\n0\r\n\r\n";
+    std::string output;
+
+    auto result = decoder.process(input, output);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::InvalidChunkFraming);
+}
+
+TEST(ChunkedDecoderTest, RejectsMissingChunkExtensionValue) {
+    ChunkedDecoder decoder;
+    std::string input = "1;foo=\r\nx\r\n0\r\n\r\n";
+    std::string output;
+
+    auto result = decoder.process(input, output);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::InvalidChunkFraming);
+}
+
+TEST(ChunkedDecoderTest, RejectsUnterminatedQuotedChunkExtension) {
+    ChunkedDecoder decoder;
+    std::string input = "1;foo=\"bar\r\nx\r\n0\r\n\r\n";
+    std::string output;
+
+    auto result = decoder.process(input, output);
+
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error().code, ErrorCode::InvalidChunkFraming);
 }
 
 TEST(ChunkedDecoderTest, RejectsMissingChunkDataCrlf) {
