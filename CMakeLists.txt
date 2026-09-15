@@ -19,12 +19,12 @@ include(cmake/modules/warning.cmake)
 include(cmake/modules/sanitizing.cmake)
 include(cmake/modules/optimizing.cmake)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/src)
+add_subdirectory(src)
 if(BUILD_TESTING)
-	add_subdirectory(${CMAKE_SOURCE_DIR}/tests)
+	add_subdirectory(tests)
 endif()
-add_subdirectory(${CMAKE_SOURCE_DIR}/benchmarks)
-add_subdirectory(${CMAKE_SOURCE_DIR}/examples)
+add_subdirectory(benchmarks)
+add_subdirectory(examples)
 
 set(CPP_REQUEST_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/cpp_request")
 
@@ -37,7 +37,7 @@ configure_package_config_file(
 write_basic_package_version_file(
 	${CMAKE_CURRENT_BINARY_DIR}/cpp_requestConfigVersion.cmake
 	VERSION ${PROJECT_VERSION}
-	COMPATIBILITY SameMajorVersion
+	COMPATIBILITY SameMinorVersion
 )
 
 install(
