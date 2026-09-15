@@ -3,6 +3,7 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/core/headers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/core/url.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/request_serializer.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/http/redirect.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/chunked_decoder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/http/response_parser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/platform/native_socket.cpp
