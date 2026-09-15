@@ -8,6 +8,7 @@
 
 #include <cpp_request/request.hpp>
 #include <cpp_request/response.hpp>
+#include <cpp_request/response_limits.hpp>
 #include <cpp_request/result.hpp>
 
 namespace cpp_request::detail::http {
@@ -19,7 +20,9 @@ enum class ResponseParseProgress {
 
 class ResponseParser final {
 public:
-    explicit ResponseParser(Method request_method) noexcept;
+    explicit ResponseParser(
+        Method request_method,
+        ResponseLimits limits = {}) noexcept;
 
     [[nodiscard]] Result<ResponseParseProgress> feed(std::string_view bytes);
     [[nodiscard]] Result<ResponseParseProgress> finish_eof();
@@ -43,6 +46,7 @@ private:
     [[nodiscard]] Result<ResponseParseProgress> process_buffer();
 
     Method request_method_;
+    ResponseLimits limits_{};
     Stage stage_{Stage::Head};
     Response response_;
     std::string buffer_;

@@ -45,6 +45,7 @@ enum class ErrorCode {
     InvalidChunkFraming,
     ConflictingMessageFraming,
     UnexpectedEof,
+    ResponseLimitExceeded,
 
     RedirectLimitExceeded,
     MissingRedirectLocation,
@@ -97,7 +98,7 @@ Rules:
 | `ReadTimeout` | Waiting for response bytes exceeded the configured read timeout. |
 | `ConnectionClosed` | Peer closure is observed where the operation requires an active connection. |
 
-### HTTP protocol errors
+### HTTP protocol / response errors
 
 | Code | Meaning |
 | --- | --- |
@@ -109,6 +110,9 @@ Rules:
 | `InvalidChunkFraming` | Chunk delimiters, CRLF, or terminal framing are invalid. |
 | `ConflictingMessageFraming` | Response framing metadata is contradictory or unsafe to interpret silently. |
 | `UnexpectedEof` | Connection ended before protocol-defined response completion. |
+| `ResponseLimitExceeded` | Response parsing would exceed a configured response-head, decoded-body, chunk-line, or trailer resource limit. |
+
+`ResponseLimitExceeded` is intentionally separate from syntax errors: a response may be syntactically valid but exceed the caller's configured in-memory resource budget.
 
 ### Redirect errors
 
@@ -177,6 +181,17 @@ Examples:
 - EOF before a complete chunked message terminator → `UnexpectedEof` or a more specific chunk framing error.
 - EOF after a valid close-delimited response body → normal message completion, not an error.
 - EOF when a reusable connection is expected but no request is currently active may simply invalidate reuse state internally.
+
+## Resource-limit semantics
+
+Response resource limits are described in `response-limits.md`.
+
+Exceeding a configured limit:
+
+- returns `ResponseLimitExceeded`,
+- does not become `MalformedResponse`,
+- does not produce a partial successful `Response`,
+- does not leave the active connection eligible for reuse.
 
 ## Diagnostic Message Function
 

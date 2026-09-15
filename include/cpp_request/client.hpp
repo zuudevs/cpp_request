@@ -8,6 +8,7 @@
 
 #include <cpp_request/request.hpp>
 #include <cpp_request/response.hpp>
+#include <cpp_request/response_limits.hpp>
 #include <cpp_request/result.hpp>
 
 namespace cpp_request {
@@ -57,6 +58,14 @@ public:
         max_redirects_ = count;
     }
 
+    void set_response_limits(ResponseLimits limits) noexcept {
+        response_limits_ = limits;
+    }
+
+    [[nodiscard]] const ResponseLimits& response_limits() const noexcept {
+        return response_limits_;
+    }
+
 private:
     [[nodiscard]] Result<Response> execute_once(const Request& request);
     void close_reusable_connection() noexcept;
@@ -68,6 +77,7 @@ private:
 
     bool follow_redirects_{true};
     std::size_t max_redirects_{10};
+    ResponseLimits response_limits_{};
 
     std::chrono::milliseconds connect_timeout_{5000};
     std::chrono::milliseconds read_timeout_{30000};

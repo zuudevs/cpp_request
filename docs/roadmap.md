@@ -291,38 +291,57 @@ Historical reference:
 
 Exit criteria: **complete**.
 
-## 3. HTTP correctness review — 🚧 current work
+## 3. HTTP correctness review — ✅ complete
+
+Completed work:
+
+- enforced safe response framing precedence.
+- rejected `Transfer-Encoding` + `Content-Length` ambiguity before connection reuse.
+- rejected framing fields where `1xx` / `204` semantics forbid them.
+- kept `HEAD` / `304` header-terminated while preserving allowed representation metadata.
+- corrected `205 Reset Content` framing so unframed responses are close-delimited rather than incorrectly reusable.
+- rejected actual content in a 205 response.
+- validated chunk extension token / quoted-string grammar instead of accepting arbitrary printable bytes.
+- retained trailer validation and rejected framing-critical trailer fields.
+- emitted `Content-Length: 0` for empty POST/PUT/PATCH requests while leaving empty GET/HEAD/DELETE unchanged.
+- documented timeout boundaries: connect budget across endpoint attempts, one write budget across request transmission, read timeout per wait for response progress.
+- preserved context-sensitive EOF semantics: incomplete explicit framing is `UnexpectedEof`; valid close-delimited EOF completes normally; timeout never masquerades as EOF.
+- fixed a dangling `std::string_view` in Transfer-Encoding analysis exposed by MSVC Debug CI.
+
+Historical reference:
+
+- PR #24 — HTTP framing correctness hardening
+
+Exit criteria: **complete**.
+
+## 4. Resource-bound review — 🚧 current work
+
+Because response bodies are memory-resident in v1, the parser now receives explicit finite response limits from `Client`.
 
 Current hardening scope:
 
-- enforce safe response framing precedence.
-- reject `Transfer-Encoding` + `Content-Length` ambiguity before connection reuse.
-- reject framing fields where `1xx` / `204` semantics forbid them.
-- keep `HEAD` / `304` header-terminated while preserving allowed representation metadata.
-- correct `205 Reset Content` framing so unframed responses are close-delimited rather than incorrectly reusable.
-- reject actual content in a 205 response.
-- validate chunk extension token / quoted-string grammar instead of accepting arbitrary printable bytes.
-- retain trailer validation and reject framing-critical trailer fields.
-- emit `Content-Length: 0` for empty POST/PUT/PATCH requests while leaving empty GET/HEAD/DELETE unchanged.
-- document timeout boundaries: connect budget across endpoint attempts, one write budget across request transmission, read timeout per wait for response progress.
-- preserve context-sensitive EOF semantics: incomplete explicit framing is `UnexpectedEof`; valid close-delimited EOF completes normally; timeout never masquerades as EOF.
+- public `ResponseLimits` value type stored by-value in `Client`.
+- default response-head limit: 64 KiB.
+- default decoded-body limit: 64 MiB.
+- default chunk-size-line limit: 8 KiB.
+- default trailer-section limit: 64 KiB.
+- reject oversized `Content-Length` before reserving body capacity.
+- bound close-delimited accumulation before append.
+- bound chunked decoded body before chunk payload append.
+- bound unterminated/pathological chunk-size lines.
+- bound aggregate chunked trailer bytes.
+- classify limit failures as `ResponseLimitExceeded` rather than malformed HTTP.
+- make zero a real limit rather than an implicit unlimited sentinel.
+- document the resource-limit contract without adding response streaming.
 
 Exit for this substep:
 
-- framing/status/chunk edge cases have deterministic parser tests.
-- serializer framing policy is covered by tests.
-- no reviewed HTTP message-boundary ambiguity remains known.
+- head, body, chunk-line, and trailer limits have deterministic tests.
+- a body exactly at the configured limit remains valid.
+- `Client` preserves configured limits across move operations.
+- limit failures cannot leave the active connection eligible for reuse.
 
-## 4. Resource-bound review — ⏳ next
-
-Because response bodies are memory-resident in v1, document or introduce practical defensive limits where appropriate:
-
-- response-head growth.
-- pathological chunk-size lines.
-- excessive trailer/header sections.
-- body-size expectations.
-
-This milestone must not add streaming; it only hardens the frozen in-memory design.
+Once this substep merges, v0.8 is complete and the next milestone is v0.9 packaging/benchmarks/examples/documentation.
 
 v0.8 exit criteria:
 

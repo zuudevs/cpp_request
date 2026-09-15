@@ -169,6 +169,7 @@ Client::Client(Client&& other) noexcept
       reusable_port_(std::exchange(other.reusable_port_, 0)),
       follow_redirects_(other.follow_redirects_),
       max_redirects_(other.max_redirects_),
+      response_limits_(other.response_limits_),
       connect_timeout_(other.connect_timeout_),
       read_timeout_(other.read_timeout_),
       write_timeout_(other.write_timeout_) {}
@@ -186,6 +187,7 @@ Client& Client::operator=(Client&& other) noexcept {
     reusable_port_ = std::exchange(other.reusable_port_, 0);
     follow_redirects_ = other.follow_redirects_;
     max_redirects_ = other.max_redirects_;
+    response_limits_ = other.response_limits_;
     connect_timeout_ = other.connect_timeout_;
     read_timeout_ = other.read_timeout_;
     write_timeout_ = other.write_timeout_;
@@ -350,7 +352,9 @@ Result<Response> Client::execute_once(const Request& request_value) {
         }
     }
 
-    detail::http::ResponseParser parser{request_value.method()};
+    detail::http::ResponseParser parser{
+        request_value.method(),
+        response_limits_};
     std::array<char, 16 * 1024> read_buffer{};
 
     while (!parser.complete()) {

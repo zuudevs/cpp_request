@@ -112,6 +112,13 @@ struct FramingInfo {
     return value;
 }
 
+[[nodiscard]] bool would_exceed(
+    std::size_t current,
+    std::size_t addition,
+    std::size_t limit) noexcept {
+    return current > limit || addition > limit - current;
+}
+
 [[nodiscard]] bool contains_token(
     std::string_view value,
     std::string_view expected) noexcept {
@@ -313,8 +320,12 @@ struct FramingInfo {
 
 } // namespace
 
-ResponseParser::ResponseParser(Method request_method) noexcept
-    : request_method_(request_method) {}
+ResponseParser::ResponseParser(
+    Method request_method,
+    ResponseLimits limits) noexcept
+    : request_method_(request_method),
+      limits_(limits),
+      chunked_decoder_(limits) {}
 
 Result<ResponseParseProgress> ResponseParser::feed(std::string_view bytes) {
     if (!bytes.empty()) {
@@ -329,7 +340,14 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
         case Stage::Head: {
             const std::size_t head_end = buffer_.find("\r\n\r\n");
             if (head_end == std::string::npos) {
+                if (buffer_.size() > limits_.max_head_bytes) {
+                    return Error{ErrorCode::ResponseLimitExceeded};
+                }
                 return ResponseParseProgress::NeedMore;
+            }
+
+            if (would_exceed(head_end, 4, limits_.max_head_bytes)) {
+                return Error{ErrorCode::ResponseLimitExceeded};
             }
 
             auto parsed = parse_head(std::string_view{buffer_.data(), head_end});
@@ -411,6 +429,9 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
             }
 
             if (framing.content_length_count == 1) {
+                if (framing.content_length > limits_.max_body_bytes) {
+                    return Error{ErrorCode::ResponseLimitExceeded};
+                }
                 content_length_remaining_ = framing.content_length;
                 response_.body_.reserve(framing.content_length);
                 if (content_length_remaining_ == 0) {
@@ -448,6 +469,12 @@ Result<ResponseParseProgress> ResponseParser::process_buffer() {
                 return Error{ErrorCode::MalformedResponse};
             }
             if (!buffer_.empty()) {
+                if (would_exceed(
+                        response_.body_.size(),
+                        buffer_.size(),
+                        limits_.max_body_bytes)) {
+                    return Error{ErrorCode::ResponseLimitExceeded};
+                }
                 response_.body_.append(buffer_);
                 buffer_.clear();
             }
@@ -481,6 +508,12 @@ Result<ResponseParseProgress> ResponseParser::finish_eof() {
             return Error{ErrorCode::MalformedResponse};
         }
         if (!buffer_.empty()) {
+            if (would_exceed(
+                    response_.body_.size(),
+                    buffer_.size(),
+                    limits_.max_body_bytes)) {
+                return Error{ErrorCode::ResponseLimitExceeded};
+            }
             response_.body_.append(buffer_);
             buffer_.clear();
         }
