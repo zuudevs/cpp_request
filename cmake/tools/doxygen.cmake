@@ -1,28 +1,26 @@
-find_program(DOXYGEN_EXE NAMES DOXYGEN)
+include_guard(GLOBAL)
 
-function(add_doxygen_target target)
-	if(DOXYGEN_EXE)
-		set(DOXYFILE_IN "${CMAKE_SOURCE_DIR}/cmake/templates/Doxyfile.in")
-		set(DOXYFILE_OUT "${CMAKE_SOURCE_DIR}/Doxyfile")
+find_package(Doxygen QUIET)
 
-		if(EXISTS ${DOXYFILE_IN})
-			configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
-			
-			add_custom_target(${target}
-				COMMAND ${DOXYGEN_EXE} ${DOXYGEN_OUT}
-				WORKING_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY}
-				COMMENT "Generating API documentation with Doxygen..."
-				VERBATIM
-			)
-		else()
-			add_custom_target(${target}
-				COMMAND ${DOXYGEN_EXE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
-				WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-				COMMENT "Generating API documentation with Doxygen..."
-				VERBATIM
-			)
-		endif()	
-	else()
-		message(WARNING "Doxygen not found! Target '${target}' will not be created.")
+function(cpp_request_add_doxygen_target target)
+	if(NOT Doxygen_FOUND)
+		message(WARNING
+			"CPP_REQUEST_ENABLE_DOXYGEN is ON, but Doxygen was not found"
+		)
+		return()
 	endif()
+
+	set(_cpp_request_doxyfile "${PROJECT_BINARY_DIR}/Doxyfile")
+	configure_file(
+		"${PROJECT_SOURCE_DIR}/cmake/templates/Doxyfile.in"
+		"${_cpp_request_doxyfile}"
+		@ONLY
+	)
+
+	add_custom_target(${target}
+		COMMAND Doxygen::doxygen "${_cpp_request_doxyfile}"
+		WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+		COMMENT "Generating cpp_request API documentation"
+		VERBATIM
+	)
 endfunction()

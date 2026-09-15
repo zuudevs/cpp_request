@@ -1,5 +1,6 @@
 include_guard(GLOBAL)
 
+enable_testing()
 include("${PROJECT_SOURCE_DIR}/cmake/packages/google-test.cmake")
 find_package(Threads REQUIRED)
 
