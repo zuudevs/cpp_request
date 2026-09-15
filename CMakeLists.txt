@@ -1,59 +1,48 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
+
 project(
 	cpp_request
+	VERSION 0.9.0
 	DESCRIPTION "A lightweight synchronous C++17 HTTP/1.1 client built on native sockets"
-	VERSION 0.1.0
-	LANGUAGES CXX C
+	LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 
-option(CPP_REQUEST_BUILD_BENCHMARKS "Build cpp_request benchmarks" OFF)
+include(options)
+include(project-settings)
 
-include(CTest)
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-include(cmake/modules/output.cmake)
-include(cmake/modules/warning.cmake)
-include(cmake/modules/sanitizing.cmake)
-include(cmake/modules/optimizing.cmake)
+cpp_request_setup_options()
+cpp_request_setup_project()
 
 add_subdirectory(src)
-if(BUILD_TESTING)
+
+if(CPP_REQUEST_BUILD_TESTS)
+	include(testing)
 	add_subdirectory(tests)
 endif()
+
 if(CPP_REQUEST_BUILD_BENCHMARKS)
+	include(benchmarking)
 	add_subdirectory(benchmarks)
 endif()
-add_subdirectory(examples)
 
-set(CPP_REQUEST_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/cpp_request")
+if(CPP_REQUEST_BUILD_EXAMPLES)
+	include(examples)
+	add_subdirectory(examples)
+endif()
 
-configure_package_config_file(
-	${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_requestConfig.cmake.in
-	${CMAKE_CURRENT_BINARY_DIR}/cpp_requestConfig.cmake
-	INSTALL_DESTINATION ${CPP_REQUEST_INSTALL_CMAKEDIR}
-)
+if(CPP_REQUEST_ENABLE_INSTALL)
+	include(install)
+	cpp_request_configure_install()
+endif()
 
-write_basic_package_version_file(
-	${CMAKE_CURRENT_BINARY_DIR}/cpp_requestConfigVersion.cmake
-	VERSION ${PROJECT_VERSION}
-	COMPATIBILITY SameMinorVersion
-)
+if(PROJECT_IS_TOP_LEVEL AND CPP_REQUEST_ENABLE_CLANG_FORMAT)
+	include("${PROJECT_SOURCE_DIR}/cmake/tools/clang-format.cmake")
+	cpp_request_add_clang_format_targets()
+endif()
 
-install(
-	EXPORT cpp_requestTargets
-	FILE cpp_requestTargets.cmake
-	NAMESPACE cpp_request::
-	DESTINATION ${CPP_REQUEST_INSTALL_CMAKEDIR}
-)
-
-install(
-	FILES
-		${CMAKE_CURRENT_BINARY_DIR}/cpp_requestConfig.cmake
-		${CMAKE_CURRENT_BINARY_DIR}/cpp_requestConfigVersion.cmake
-	DESTINATION ${CPP_REQUEST_INSTALL_CMAKEDIR}
-)
+if(PROJECT_IS_TOP_LEVEL AND CPP_REQUEST_ENABLE_DOXYGEN)
+	include("${PROJECT_SOURCE_DIR}/cmake/tools/doxygen.cmake")
+	cpp_request_add_doxygen_target(cpp_request_docs)
+endif()
