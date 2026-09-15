@@ -50,6 +50,7 @@ private:
     std::size_t content_length_remaining_{0};
     bool connection_close_requested_{false};
     bool close_delimited_{false};
+    bool body_forbidden_{false};
 };
 
 } // namespace cpp_request::detail::http
