@@ -108,6 +108,24 @@ A single `Client` instance is **not** guaranteed to be safe for concurrent use f
 
 Independent `Client` instances may be used from different threads, subject to normal platform constraints.
 
+### Redirect behavior
+
+Automatic redirect following is enabled by default with a finite default limit of **10 followed redirects**. Callers may disable following with `set_follow_redirects(false)` or replace the limit with `set_max_redirects()`.
+
+The v1 method/body policy is:
+
+- `301` and `302`: `POST` becomes `GET` and its body is dropped; other methods are preserved,
+- `303`: every method except `HEAD` becomes `GET`; the body is dropped,
+- `307` and `308`: method and body are preserved.
+
+When a body is dropped, body-specific request headers such as `Content-Length`, `Transfer-Encoding`, and `Content-Type` are not forwarded to the redirected request.
+
+Relative `Location` values are resolved against the current request URL, including absolute-path, relative-path, query-only, and scheme-relative forms. URL fragments are never sent in the HTTP request target.
+
+Cross-origin redirects do not forward caller-supplied `Host`, `Authorization`, `Proxy-Authorization`, or `Cookie` fields. Once these fields are removed during a redirect chain they are not automatically restored if a later hop returns to the original origin.
+
+Redirects requiring HTTPS/TLS or another unsupported scheme fail with a structured redirect error rather than being followed.
+
 ---
 
 ## `Request`
