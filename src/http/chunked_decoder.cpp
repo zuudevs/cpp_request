@@ -62,6 +62,10 @@ namespace {
     }
 }
 
+[[nodiscard]] constexpr bool is_ows(unsigned char ch) noexcept {
+    return ch == ' ' || ch == '\t';
+}
+
 [[nodiscard]] bool valid_field_name(std::string_view name) noexcept {
     if (name.empty()) {
         return false;
@@ -87,27 +91,132 @@ namespace {
     return true;
 }
 
-[[nodiscard]] bool valid_chunk_extension(std::string_view extension) noexcept {
-    for (const unsigned char ch : extension) {
-        if (ch == '\t') {
+void skip_ows(std::string_view text, std::size_t& cursor) noexcept {
+    while (cursor < text.size()
+        && is_ows(static_cast<unsigned char>(text[cursor]))) {
+        ++cursor;
+    }
+}
+
+[[nodiscard]] bool parse_token(
+    std::string_view text,
+    std::size_t& cursor) noexcept {
+    const std::size_t begin = cursor;
+    while (cursor < text.size()
+        && is_tchar(static_cast<unsigned char>(text[cursor]))) {
+        ++cursor;
+    }
+    return cursor != begin;
+}
+
+[[nodiscard]] constexpr bool is_qdtext(unsigned char ch) noexcept {
+    return ch == '\t'
+        || ch == ' '
+        || ch == 0x21
+        || (ch >= 0x23 && ch <= 0x5b)
+        || (ch >= 0x5d && ch <= 0x7e)
+        || ch >= 0x80;
+}
+
+[[nodiscard]] constexpr bool is_quoted_pair_char(unsigned char ch) noexcept {
+    return ch == '\t'
+        || ch == ' '
+        || (ch >= 0x21 && ch <= 0x7e)
+        || ch >= 0x80;
+}
+
+[[nodiscard]] bool parse_quoted_string(
+    std::string_view text,
+    std::size_t& cursor) noexcept {
+    if (cursor >= text.size() || text[cursor] != '"') {
+        return false;
+    }
+    ++cursor;
+
+    while (cursor < text.size()) {
+        const unsigned char ch = static_cast<unsigned char>(text[cursor]);
+        if (ch == '"') {
+            ++cursor;
+            return true;
+        }
+
+        if (ch == '\\') {
+            ++cursor;
+            if (cursor >= text.size()
+                || !is_quoted_pair_char(
+                    static_cast<unsigned char>(text[cursor]))) {
+                return false;
+            }
+            ++cursor;
             continue;
         }
-        if (ch < 0x20 || ch == 0x7f) {
+
+        if (!is_qdtext(ch)) {
+            return false;
+        }
+        ++cursor;
+    }
+
+    return false;
+}
+
+[[nodiscard]] bool valid_chunk_extensions(std::string_view extension) noexcept {
+    if (extension.empty()) {
+        return false;
+    }
+
+    std::size_t cursor = 0;
+    while (true) {
+        skip_ows(extension, cursor);
+        if (!parse_token(extension, cursor)) {
+            return false;
+        }
+
+        skip_ows(extension, cursor);
+        if (cursor < extension.size() && extension[cursor] == '=') {
+            ++cursor;
+            skip_ows(extension, cursor);
+            if (cursor >= extension.size()) {
+                return false;
+            }
+
+            if (extension[cursor] == '"') {
+                if (!parse_quoted_string(extension, cursor)) {
+                    return false;
+                }
+            } else if (!parse_token(extension, cursor)) {
+                return false;
+            }
+            skip_ows(extension, cursor);
+        }
+
+        if (cursor == extension.size()) {
+            return true;
+        }
+        if (extension[cursor] != ';') {
+            return false;
+        }
+        ++cursor;
+        if (cursor == extension.size()) {
             return false;
         }
     }
-    return true;
 }
 
 [[nodiscard]] Result<std::size_t> parse_chunk_size(std::string_view line) noexcept {
     const std::size_t semicolon = line.find(';');
-    const std::string_view size_text = line.substr(0, semicolon);
+    std::string_view size_text = line.substr(0, semicolon);
+    while (!size_text.empty()
+        && is_ows(static_cast<unsigned char>(size_text.back()))) {
+        size_text.remove_suffix(1);
+    }
+
     if (size_text.empty()) {
         return Error{ErrorCode::InvalidChunkSize};
     }
 
     if (semicolon != std::string_view::npos
-        && !valid_chunk_extension(line.substr(semicolon + 1))) {
+        && !valid_chunk_extensions(line.substr(semicolon + 1))) {
         return Error{ErrorCode::InvalidChunkFraming};
     }
 
