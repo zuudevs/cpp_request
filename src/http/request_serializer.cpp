@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace cpp_request::detail::http {
 namespace {
@@ -68,6 +69,54 @@ namespace {
         return true;
     default:
         return false;
+    }
+}
+
+[[nodiscard]] constexpr bool is_unreserved(unsigned char ch) noexcept {
+    return (ch >= '0' && ch <= '9')
+        || (ch >= 'A' && ch <= 'Z')
+        || (ch >= 'a' && ch <= 'z')
+        || ch == '-'
+        || ch == '.'
+        || ch == '_'
+        || ch == '~';
+}
+
+void append_percent_encoded(std::string& output, std::string_view input) {
+    constexpr char kHex[] = "0123456789ABCDEF";
+    for (const unsigned char ch : input) {
+        if (is_unreserved(ch)) {
+            output.push_back(static_cast<char>(ch));
+            continue;
+        }
+
+        output.push_back('%');
+        output.push_back(kHex[(ch >> 4) & 0x0f]);
+        output.push_back(kHex[ch & 0x0f]);
+    }
+}
+
+void append_query_params(
+    std::string& output,
+    const std::vector<Request::QueryParam>& params) {
+    if (params.empty()) {
+        return;
+    }
+
+    const bool has_query = output.find('?') != std::string::npos;
+    if (!has_query) {
+        output.push_back('?');
+    } else if (!output.empty() && output.back() != '?' && output.back() != '&') {
+        output.push_back('&');
+    }
+
+    for (std::size_t index = 0; index < params.size(); ++index) {
+        if (index != 0) {
+            output.push_back('&');
+        }
+        append_percent_encoded(output, params[index].name);
+        output.push_back('=');
+        append_percent_encoded(output, params[index].value);
     }
 }
 
@@ -146,7 +195,27 @@ void append_generated_host(std::string& output, const Url& url) {
     output.append("\r\n");
 }
 
+[[nodiscard]] std::size_t encoded_query_reserve(
+    const std::vector<Request::QueryParam>& params) noexcept {
+    std::size_t result = 0;
+    for (const auto& param : params) {
+        result += (param.name.size() + param.value.size()) * 3 + 2;
+    }
+    return result;
+}
+
 } // namespace
+
+std::string effective_request_url(const Request& request) {
+    const std::string_view raw = request.url();
+    const std::size_t fragment = raw.find('#');
+    const std::string_view without_fragment = raw.substr(0, fragment);
+
+    std::string result{without_fragment};
+    result.reserve(result.size() + encoded_query_reserve(request.query_params()));
+    append_query_params(result, request.query_params());
+    return result;
+}
 
 Result<SerializedRequest> serialize_request(const Request& request) {
     auto parsed_url = Url::parse(request.url());
@@ -198,9 +267,14 @@ Result<SerializedRequest> serialize_request(const Request& request) {
     serialized.url = std::move(parsed_url).value();
     serialized.body = request.body();
 
+    std::string request_target{serialized.url.target()};
+    request_target.reserve(
+        request_target.size() + encoded_query_reserve(request.query_params()));
+    append_query_params(request_target, request.query_params());
+
     std::size_t reserve_size = method.size()
         + 1
-        + serialized.url.target().size()
+        + request_target.size()
         + sizeof(" HTTP/1.1\r\n") - 1
         + request.headers().size() * 16
         + 64;
@@ -211,9 +285,7 @@ Result<SerializedRequest> serialize_request(const Request& request) {
 
     serialized.head.append(method.data(), method.size());
     serialized.head.push_back(' ');
-    serialized.head.append(
-        serialized.url.target().data(),
-        serialized.url.target().size());
+    serialized.head.append(request_target);
     serialized.head.append(" HTTP/1.1\r\n");
 
     if (host_count == 0) {

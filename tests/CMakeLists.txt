@@ -7,6 +7,7 @@ add_executable(cpp_request_tests
 	${CMAKE_CURRENT_SOURCE_DIR}/headers_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/request_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/request_serializer_test.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/query_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/redirect_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/chunked_decoder_test.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/response_parser_test.cpp

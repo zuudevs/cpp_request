@@ -41,10 +41,38 @@ TEST(RequestTest, OwnsHeaderStorageIndependentlyFromBorrowedRequestData) {
     EXPECT_EQ(request.headers().get("content-type"), "application/json");
 }
 
+TEST(RequestTest, OwnsQueryParameterStorage) {
+    std::string name = "search";
+    std::string value = "hello world";
+
+    Request request{Method::Get, "http://example.com/items"};
+    request.add_query_param(name, value);
+
+    name.assign("changed");
+    value.assign("changed");
+
+    ASSERT_EQ(request.query_params().size(), 1u);
+    EXPECT_EQ(request.query_params()[0].name, "search");
+    EXPECT_EQ(request.query_params()[0].value, "hello world");
+}
+
+TEST(RequestTest, PreservesRepeatedQueryParametersInInsertionOrder) {
+    Request request{Method::Get, "http://example.com/items"};
+    request.add_query_param("tag", "cpp");
+    request.add_query_param("tag", "http");
+
+    ASSERT_EQ(request.query_params().size(), 2u);
+    EXPECT_EQ(request.query_params()[0].name, "tag");
+    EXPECT_EQ(request.query_params()[0].value, "cpp");
+    EXPECT_EQ(request.query_params()[1].name, "tag");
+    EXPECT_EQ(request.query_params()[1].value, "http");
+}
+
 TEST(RequestTest, ConstAccessorsExposeRequestState) {
     Request mutable_request{Method::Patch, "http://example.com/item/1"};
     mutable_request.set_body("patch-body");
     mutable_request.headers().add("X-Test", "value");
+    mutable_request.add_query_param("mode", "fast");
 
     const Request& request = mutable_request;
 
@@ -52,6 +80,9 @@ TEST(RequestTest, ConstAccessorsExposeRequestState) {
     EXPECT_EQ(request.url(), "http://example.com/item/1");
     EXPECT_EQ(request.body(), "patch-body");
     EXPECT_EQ(request.headers().get("x-test"), "value");
+    ASSERT_EQ(request.query_params().size(), 1u);
+    EXPECT_EQ(request.query_params()[0].name, "mode");
+    EXPECT_EQ(request.query_params()[0].value, "fast");
 }
 
 TEST(RequestTest, SupportsAllV1Methods) {

@@ -217,7 +217,7 @@ Result<Response> Client::request(const Request& request_value) {
         return response;
     }
 
-    std::string current_url{request_value.url()};
+    std::string current_url = detail::http::effective_request_url(request_value);
     Method current_method = request_value.method();
     Headers current_headers = request_value.headers();
     std::string_view current_body = request_value.body();

@@ -16,5 +16,6 @@ struct SerializedRequest final {
 };
 
 [[nodiscard]] Result<SerializedRequest> serialize_request(const Request& request);
+[[nodiscard]] std::string effective_request_url(const Request& request);
 
 } // namespace cpp_request::detail::http

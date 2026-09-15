@@ -56,6 +56,23 @@ TEST(UrlTest, ParsesBracketedIpv6Literal) {
     EXPECT_EQ(parsed.value().target(), "/a");
 }
 
+TEST(UrlTest, ParsesIpv6LiteralWithEmbeddedIpv4) {
+    auto parsed = Url::parse("http://[::ffff:192.0.2.128]/a");
+
+    ASSERT_TRUE(parsed);
+    EXPECT_EQ(parsed.value().host(), "::ffff:192.0.2.128");
+    EXPECT_TRUE(parsed.value().host_is_ipv6_literal());
+}
+
+TEST(UrlTest, PreservesValidPercentEscapes) {
+    auto parsed = Url::parse("http://example.com/a%20b?q=x%2Fy");
+
+    ASSERT_TRUE(parsed);
+    EXPECT_EQ(parsed.value().path(), "/a%20b");
+    EXPECT_EQ(parsed.value().query(), "q=x%2Fy");
+    EXPECT_EQ(parsed.value().target(), "/a%20b?q=x%2Fy");
+}
+
 TEST(UrlTest, FragmentIsNotPartOfRequestTarget) {
     auto parsed = Url::parse("http://example.com/a?x=1#section");
 
@@ -115,6 +132,48 @@ TEST(UrlTest, RejectsOutOfRangePort) {
 
 TEST(UrlTest, RejectsUnbracketedIpv6Literal) {
     auto parsed = Url::parse("http://2001:db8::1/");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsBracketedNonIpv6Host) {
+    auto parsed = Url::parse("http://[not-an-ipv6]/");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsMalformedBracketedIpv6Literal) {
+    auto parsed = Url::parse("http://[2001:::1]/");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsIpv6ZoneIdentifierInV1) {
+    auto parsed = Url::parse("http://[fe80::1%25eth0]/");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsTruncatedPercentEscapeInPath) {
+    auto parsed = Url::parse("http://example.com/a%2");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsNonHexPercentEscapeInPath) {
+    auto parsed = Url::parse("http://example.com/a%XZ");
+
+    ASSERT_FALSE(parsed);
+    EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
+}
+
+TEST(UrlTest, RejectsMalformedPercentEscapeInQuery) {
+    auto parsed = Url::parse("http://example.com/a?q=%GG");
 
     ASSERT_FALSE(parsed);
     EXPECT_EQ(parsed.error().code, ErrorCode::InvalidUrl);
