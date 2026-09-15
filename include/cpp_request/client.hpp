@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -48,13 +49,25 @@ public:
         write_timeout_ = timeout;
     }
 
+    void set_follow_redirects(bool enabled) noexcept {
+        follow_redirects_ = enabled;
+    }
+
+    void set_max_redirects(std::size_t count) noexcept {
+        max_redirects_ = count;
+    }
+
 private:
+    [[nodiscard]] Result<Response> execute_once(const Request& request);
     void close_reusable_connection() noexcept;
 
     std::uintptr_t reusable_socket_token_{0};
     bool has_reusable_connection_{false};
     std::string reusable_host_;
     std::uint16_t reusable_port_{0};
+
+    bool follow_redirects_{true};
+    std::size_t max_redirects_{10};
 
     std::chrono::milliseconds connect_timeout_{5000};
     std::chrono::milliseconds read_timeout_{30000};
