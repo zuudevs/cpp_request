@@ -1,4 +1,4 @@
-add_library(internal
+add_library(cpp_request
 	${CMAKE_CURRENT_SOURCE_DIR}/core/client.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/core/headers.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/core/url.cpp
@@ -15,15 +15,15 @@ add_library(internal
 	${CMAKE_CURRENT_SOURCE_DIR}/net/tcp_connection.cpp
 )
 
-set_target_properties(internal PROPERTIES
+set_target_properties(cpp_request PROPERTIES
 	EXPORT_NAME cpp_request
 	OUTPUT_NAME cpp_request
 )
 
-add_library(${PROJECT_NAME}::internal ALIAS internal)
-add_library(${PROJECT_NAME}::cpp_request ALIAS internal)
+add_library(cpp_request::cpp_request ALIAS cpp_request)
+add_library(cpp_request::internal ALIAS cpp_request)
 
-target_include_directories(internal
+target_include_directories(cpp_request
 	PUBLIC
 		$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
@@ -31,23 +31,10 @@ target_include_directories(internal
 		${PROJECT_SOURCE_DIR}/src
 )
 
-target_compile_features(internal PUBLIC cxx_std_17)
+target_compile_features(cpp_request PUBLIC cxx_std_17)
 
 if(WIN32)
-	target_link_libraries(internal PRIVATE ws2_32)
+	target_link_libraries(cpp_request PRIVATE ws2_32)
 endif()
 
-install(
-	TARGETS internal
-	EXPORT cpp_requestTargets
-	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
-
-install(
-	DIRECTORY ${PROJECT_SOURCE_DIR}/include/cpp_request
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-	FILES_MATCHING PATTERN "*.hpp"
-)
+cpp_request_configure_target(cpp_request)
