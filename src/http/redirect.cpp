@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <cpp_request/error.hpp>
@@ -112,10 +113,12 @@ namespace {
         normalized.append(segments[index]);
     }
 
+    const bool ends_with_dot = path.size() >= 2
+        && path.substr(path.size() - 2) == "/.";
+    const bool ends_with_dot_dot = path.size() >= 3
+        && path.substr(path.size() - 3) == "/..";
     const bool keep_trailing_slash = !path.empty()
-        && (path.back() == '/'
-            || path.size() >= 2 && path.substr(path.size() - 2) == "/."
-            || path.size() >= 3 && path.substr(path.size() - 3) == "/..");
+        && (path.back() == '/' || ends_with_dot || ends_with_dot_dot);
     if (keep_trailing_slash && normalized.back() != '/') {
         normalized.push_back('/');
     }
