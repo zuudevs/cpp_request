@@ -82,8 +82,9 @@ struct FramingInfo {
         return false;
     }
 
-    for (const unsigned char ch : name) {
-        if (!is_tchar(ch)) {
+    for (const char ch : name) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (!is_tchar(byte)) {
             return false;
         }
     }
@@ -91,11 +92,12 @@ struct FramingInfo {
 }
 
 [[nodiscard]] bool valid_field_value(std::string_view value) noexcept {
-    for (const unsigned char ch : value) {
-        if (ch == '\t') {
+    for (const char ch : value) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (byte == '\t') {
             continue;
         }
-        if (ch < 0x20 || ch == 0x7f) {
+        if (byte < 0x20u || byte == 0x7fu) {
             return false;
         }
     }
@@ -141,11 +143,12 @@ struct FramingInfo {
 }
 
 [[nodiscard]] bool valid_reason_phrase(std::string_view reason) noexcept {
-    for (const unsigned char ch : reason) {
-        if (ch == '\t') {
+    for (const char ch : reason) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (byte == '\t') {
             continue;
         }
-        if (ch < 0x20 || ch == 0x7f) {
+        if (byte < 0x20u || byte == 0x7fu) {
             return false;
         }
     }
