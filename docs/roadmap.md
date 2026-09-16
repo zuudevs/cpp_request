@@ -7,21 +7,12 @@
 - Current development version: v0.9.0
 - Language baseline: C++17
 - Protocol scope: synchronous HTTP/1.1 over plaintext TCP
-- Last roadmap review: 2026-09-15
+- Current milestone: v1.0 release hardening
+- Last roadmap review: 2026-09-16
 
-This document is the implementation-order source of truth for the v1 release. The frozen functional and non-functional requirements remain authoritative for **what** v1 must provide; this roadmap records milestone completion and the remaining release gate.
+The frozen functional and non-functional requirements remain authoritative for **what** v1 must provide. This roadmap records implementation milestones and the remaining release work.
 
-Version labels are development milestones and do not require a public release tag unless explicitly decided.
-
----
-
-## Status Legend
-
-- ✅ **Complete** — merged implementation exists and the milestone exit criteria are satisfied.
-- 🚧 **In progress** — active implementation or finalization work exists.
-- ⏳ **Planned** — required work has not started.
-- 🧪 **Release gate** — integrated verification required before v1.0.
-- ➡️ **Post-v1** — intentionally outside the frozen v1 scope.
+The detailed v1 acceptance evidence is maintained in [`docs/release/v1.0-acceptance.md`](release/v1.0-acceptance.md).
 
 ---
 
@@ -31,378 +22,128 @@ Version labels are development milestones and do not require a public release ta
 | --- | --- | --- |
 | v0.1 | Requirements, architecture, API/error contracts | ✅ Complete |
 | v0.2 | URL, platform sockets, DNS, TCP transport | ✅ Complete |
-| v0.3 | HTTP request data model and serialization | ✅ Complete |
+| v0.3 | HTTP request model and serialization | ✅ Complete |
 | v0.4 | HTTP response parsing and body framing | ✅ Complete |
-| v0.5 | Public `Client` end-to-end execution path | ✅ Complete |
+| v0.5 | Public `Client` execution path | ✅ Complete |
 | v0.6 | HTTP/1.1 connection reuse / keep-alive | ✅ Complete |
 | v0.7 | Redirect handling | ✅ Complete |
 | v0.8 | Protocol/API correctness hardening | ✅ Complete |
-| v0.9 | Packaging, benchmarks, examples, documentation | ✅ Complete on merge of PR #29 |
-| v1.0 | Release hardening and acceptance gate | 🧪 Next |
+| v0.9 | Packaging, benchmarks, examples, documentation | ✅ Complete |
+| v1.0 | Release hardening and acceptance gate | 🚧 In progress |
 
 ---
 
-# v0.1 — Specification and Architecture Baseline ✅
+## Completed implementation milestones
 
-Goal: freeze the v1 product boundary before implementation expands.
+### v0.1 — Specification and architecture
 
-Completed:
+Frozen v1 requirements, architecture boundaries, public API/error/lifetime contracts, C++17 baseline, synchronous-only execution, no mandatory PImpl, and explicit HTTPS/TLS exclusion.
 
-- frozen functional and non-functional requirements,
-- layered Public API / HTTP / Transport / Platform architecture,
-- public API, lifetime, error, and `Result<T>` contracts,
-- C++17 minimum,
-- synchronous-only v1,
-- no PImpl requirement,
-- HTTPS/TLS explicitly outside v1.
+References: PR #2, #3, #4, #5.
 
-Historical references:
+### v0.2 — Native transport foundation
 
-- PR #2 — frozen v1 requirements
-- PR #3 — architecture boundaries
-- PR #4 — public API contract
-- PR #5 — error and `Result<T>` contracts
+URL parsing, native socket RAII, DNS, IPv4/IPv6 endpoints, timed TCP connect/read/write, endpoint fallback, partial I/O, and platform error normalization.
 
-Exit criteria: **complete**.
+References: PR #6–#10.
 
----
+### v0.3 — Request model and serializer
 
-# v0.2 — Native Transport Foundation ✅
+Ordered headers, request methods, borrowed request URL/body, Host generation, Content-Length behavior, custom headers, query parameters, and request injection validation.
 
-Goal: provide a portable bounded TCP byte stream without leaking native sockets into the public API.
+References: PR #11, #12, #23.
 
-Completed:
+### v0.4 — Response parser and framing
 
-- URL parsing and HTTP-only scheme validation,
-- IPv4 and IPv6 endpoints,
-- Winsock/POSIX native socket RAII,
-- network runtime initialization,
-- OS DNS resolution,
-- timed connect/read/write,
-- endpoint fallback,
-- partial-I/O handling,
-- SIGPIPE-safe POSIX behavior,
-- normalized transport errors.
+Incremental status/header parsing, Content-Length, close-delimited and chunked bodies, HEAD/1xx/204/205/304 semantics, trailer/chunk validation, EOF handling, and framing-conflict rejection.
 
-Historical references:
+References: PR #13, #14, #24.
 
-- PR #6 — URL parser
-- PR #7 — native socket RAII
-- PR #8 — DNS resolver and endpoints
-- PR #9 — timed TCP connect
-- PR #10 — timed TCP read/write
+### v0.5 — Public Client
 
-Exit criteria: **complete**.
+Stateful synchronous `Client`, one-shot helpers, configurable connect/read/write timeouts, structured errors, and loopback integration coverage.
 
----
+Reference: PR #15.
 
-# v0.3 — HTTP Request Model and Serialization ✅
+### v0.6 — Connection reuse
 
-Goal: represent and serialize all v1 request methods while avoiding unnecessary payload copies.
+Single eligible retained connection, same-origin reuse, forced close rules, origin-change reconnect, stale keep-alive handling without hidden retry, and move-only resource ownership.
 
-Completed:
+Reference: PR #20.
 
-- ordered owning `Headers`,
-- case-insensitive lookup and duplicate fields,
-- borrowed request URL/body,
-- GET / HEAD / POST / PUT / PATCH / DELETE,
-- request-line and header serialization,
-- automatic `Host`,
-- IPv6 Host formatting,
-- Content-Length generation/validation,
-- request-header syntax and injection validation.
+### v0.7 — Redirects
 
-Historical references:
+Bounded configurable redirects, HTTP redirect method/body policy, relative target resolution, sensitive-header stripping across origins, and explicit unsupported-scheme handling.
 
-- PR #11 — `Headers` and `Request`
-- PR #12 — request serializer
+Reference: PR #21.
 
-Exit criteria: **complete**.
+### v0.8 — Correctness and resource hardening
+
+`Result<T>` hardening, URL/query correctness, HTTP framing review, explicit timeout/EOF semantics, response resource limits, deterministic boundary tests, and connection invalidation after parsing/resource failures.
+
+References: PR #22–#25.
+
+### v0.9 — Consumability and measurement
+
+Installable CMake package, stable `cpp_request::cpp_request` target, install-tree consumer test, benchmark suite and smoke CI, modular CMake architecture, examples, README, and getting-started documentation.
+
+References: PR #26–#29.
 
 ---
 
-# v0.4 — HTTP Response Parser and Framing ✅
+# v1.0 — Release Hardening and Acceptance Gate 🚧
 
-Goal: parse HTTP/1.1 incrementally and independently of TCP packet boundaries.
+Goal: verify the frozen requirements as one coherent release candidate without adding new feature scope.
 
-Completed:
+## Automated verification
 
-- owning `Response`,
-- status-line and header parsing,
-- interim 1xx handling,
-- HEAD/no-body semantics,
-- Content-Length framing,
-- close-delimited framing,
-- chunked transfer decoding,
-- chunk extension/trailer validation,
-- EOF and framing-conflict detection,
-- connection-reuse eligibility signals,
-- preservation of pending bytes belonging to the following response.
-
-Historical references:
-
-- PR #13 — incremental response parser
-- PR #14 — chunked transfer decoder
-
-Exit criteria: **complete**.
-
----
-
-# v0.5 — Public Client Core ✅
-
-Goal: connect serialization, DNS, TCP, parser, and public result handling into one synchronous request path.
-
-Completed:
-
-- `Client::request(const Request&)`,
-- member GET / HEAD / POST / PUT / PATCH / DELETE helpers,
-- equivalent one-shot free helpers,
-- connect/read/write timeout configuration,
-- loopback integration coverage,
-- unsupported HTTPS rejection before networking.
-
-Historical reference:
-
-- PR #15 — public `Client` execution path
-
-Exit criteria: **complete**.
-
----
-
-# v0.6 — Connection Reuse / Keep-Alive ✅
-
-Goal: make `Client` genuinely stateful for sequential same-origin HTTP/1.1 traffic.
-
-Completed:
-
-- one retained eligible connection,
-- effective host+port origin identity,
-- reuse only after complete reusable responses,
-- forced close for `Connection: close`, close-delimited, upgrade, and failed states,
-- origin-change reconnect,
-- no hidden automatic retry after stale keep-alive failure,
-- move-only client ownership.
-
-Historical reference:
-
-- PR #20 — HTTP/1.1 connection reuse
-
-Exit criteria: **complete**.
-
----
-
-# v0.7 — Redirect Handling ✅
-
-Goal: implement bounded redirects without expanding beyond plaintext HTTP.
-
-Completed:
-
-- configurable finite redirect following,
-- 301 / 302 / 303 / 307 / 308 handling,
-- method/body rewrite policy,
-- absolute and relative Location resolution,
-- same-origin reuse and cross-origin reconnect,
-- sensitive header stripping across origins,
-- unsupported redirect-scheme rejection,
-- redirect-specific structured errors.
-
-Historical reference:
-
-- PR #21 — bounded HTTP redirect handling
-
-Exit criteria: **complete**.
-
----
-
-# v0.8 — Protocol and API Correctness Hardening ✅
-
-Goal: close correctness and bounded-resource gaps before presenting the API as release-candidate quality.
-
-## Result hardening
-
-Completed:
-
-- explicit variant-index state access,
-- no hidden `bad_variant_access` from noexcept accessors,
-- explicit success/failure factories,
-- unambiguous `Result<Error>`,
-- move-only payload support.
-
-Reference: PR #22.
-
-## URL and query correctness
-
-Completed:
-
-- owned appended query parameters,
-- insertion-order/repeated-key preservation,
-- percent encoding,
-- raw-query preservation,
-- percent-escape validation,
-- ASCII-only scheme handling,
-- stronger IPv6 literal validation.
-
-Reference: PR #23.
-
-## HTTP framing correctness
-
-Completed:
-
-- safe framing precedence,
-- Transfer-Encoding + Content-Length conflict rejection,
-- 1xx/204/205/304/HEAD framing review,
-- strict chunk-extension and trailer validation,
-- correct empty-body request Content-Length behavior,
-- explicit timeout/EOF semantics,
-- CI-exposed lifetime bug fixes.
-
-Reference: PR #24.
-
-## Response resource bounds
-
-Completed:
-
-- public `ResponseLimits`,
-- default 64 KiB head limit,
-- default 64 MiB decoded body limit,
-- default 8 KiB chunk-line limit,
-- default 64 KiB trailer limit,
-- early Content-Length rejection,
-- bounded close-delimited and chunked accumulation,
-- `ResponseLimitExceeded`,
-- zero treated as a real limit,
-- deterministic boundary tests,
-- failed limited responses never leave the connection reusable.
-
-Reference: PR #25.
-
-v0.8 exit criteria: **complete**.
-
----
-
-# v0.9 — Packaging, Benchmarks, Examples, and Documentation ✅
-
-Goal: make the library consumable, measurable, and understandable before the release gate.
-
-## Packaging ✅
-
-Completed:
-
-- public header installation,
-- library installation/export,
-- `cpp_requestConfig.cmake` and version config,
-- stable installed target `cpp_request::cpp_request`,
-- install-tree consumer test,
-- no GTest/Google Benchmark leakage into consumer package metadata.
-
-Reference: PR #26.
-
-## Benchmarks ✅
-
-Executable benchmarks now cover:
-
-- request serialization,
-- response/header parsing,
-- chunked decoding,
-- end-to-end local loopback request overhead,
-- connection reuse vs reconnect.
-
-The benchmark suite is opt-in and has a dedicated Release smoke matrix across Windows, Linux, and macOS.
-
-Reference: PR #27.
-
-## Build-system integration ✅
-
-Completed:
-
-- modular target-scoped CMake configuration,
-- project version aligned to v0.9.0,
-- namespaced build helpers,
-- centralized test/benchmark/example/install modules,
-- clean install/export ownership,
-- source-tree-safe configure behavior,
-- development tooling cleanup.
-
-Reference: PR #28.
-
-## Examples and user documentation ✅
-
-Completed by PR #29:
-
-- root README,
-- minimal GET example,
-- POST/custom-header/query example,
-- configured reusable Client example,
-- timeout configuration,
-- redirect configuration,
-- response-limit configuration,
-- structured error handling,
-- explicit thread-safety statement,
-- explicit HTTP-only / HTTPS-TLS exclusion,
-- install/consumer instructions,
-- getting-started guide aligned with the implemented public API.
-
-Existing API-specific documentation remains authoritative for detailed contracts:
-
-- `docs/api/public-api.md`,
-- `docs/api/error-model.md`,
-- `docs/api/result.md`,
-- `docs/api/lifetime.md`,
-- `docs/api/response-limits.md`.
-
-v0.9 exit criteria: **complete when PR #29 merges**.
-
----
-
-# v1.0 — Release Hardening and Acceptance Gate 🧪
-
-Goal: verify the frozen requirements as one coherent release candidate.
-
-Required verification:
+The release candidate must have:
 
 - Windows Debug/Release CI green,
 - Linux Debug/Release CI green,
 - macOS Debug/Release CI green,
-- C++17 build validated,
-- all unit and loopback integration tests green,
-- no required test depends on public internet access,
-- sanitizer configuration reviewed and exercised where supported,
-- deterministic socket cleanup verified on failure paths,
-- connect/read/write timeout coverage present,
-- connection reuse and redirect coverage present,
+- C++17 build/test coverage,
+- C++20 compatibility coverage,
+- ASan + UBSan test execution where supported,
+- warnings-as-errors release-gate builds,
+- unit and loopback integration tests green,
+- no required HTTP test depending on a public service,
 - install-tree consumer test green,
-- benchmark targets build and run,
-- examples build,
-- public headers reviewed for internal/platform leakage,
-- documentation checked against the frozen v1 scope,
-- release versioning/tagging decision finalized.
+- C++20 installed-consumer test green,
+- benchmark smoke jobs green,
+- examples compiling,
+- every public header compiling independently without `src/` includes.
 
-## v1.0 Definition of Done
+## Required review
 
-v1.0 is ready only when:
+Before v1.0.0 promotion:
 
-1. every **MUST** functional requirement is implemented or explicitly revised first,
-2. every **MUST** non-functional requirement has a concrete verification path,
-3. no known correctness bug can corrupt an HTTP message boundary or reuse an invalid connection,
-4. expected URL/network/protocol/resource failures remain representable through structured errors,
-5. the installed library has zero third-party runtime dependency,
-6. public API and lifetime contracts match implementation,
-7. benchmarks exist for any performance claims the project intends to make,
-8. all release-gate CI and documentation checks pass.
+- every MUST functional requirement must have implementation/test evidence,
+- every MUST non-functional requirement must have a verification path,
+- no known bug may corrupt HTTP message framing or reuse an invalid connection,
+- expected URL/network/protocol/resource failures must remain structured,
+- the installed library must have zero third-party runtime dependency,
+- public API/lifetime/error documentation must match implementation,
+- performance claims must be grounded in the benchmark suite,
+- release version/tag metadata must be finalized.
 
----
+The requirement-to-evidence matrix lives in [`docs/release/v1.0-acceptance.md`](release/v1.0-acceptance.md).
 
-# Next Step
+## Promotion sequence
 
 ```text
-v0.9 examples + docs merge
+v1.0 hardening gates green
     ↓
-v1.0 integrated release hardening
+manual acceptance review
     ↓
-v1.0 release candidate
+focused 0.9.0 → 1.0.0 release PR
+    ↓
+merge
+    ↓
+v1.0 tag / release
 ```
 
-No new feature should enter the v1 release path unless a frozen requirement is explicitly changed.
+The current hardening branch intentionally keeps the project version at `0.9.0`. The version becomes `1.0.0` only after the acceptance gate is satisfied.
 
 ---
 
@@ -411,10 +152,8 @@ No new feature should enter the v1 release path unless a frozen requirement is e
 The following remain intentionally outside v1.0:
 
 - HTTPS / TLS
-- asynchronous API
-- coroutines
-- HTTP/2
-- HTTP/3
+- asynchronous API and coroutines
+- HTTP/2 and HTTP/3
 - WebSocket
 - proxy support
 - cookie jar
@@ -426,34 +165,10 @@ The following remain intentionally outside v1.0:
 - automatic retries
 - response cache
 
-These features must not delay v1.0 unless the frozen requirements are explicitly revised.
+No item above should enter the v1 release path unless the frozen requirements are explicitly revised first.
 
 ---
 
-# Post-v1 Direction ➡️
+# Post-v1 Direction
 
-Potential future work includes:
-
-- TLS/HTTPS transport abstraction,
-- asynchronous/coroutine execution,
-- streaming request/response bodies,
-- generalized multi-origin connection pooling,
-- proxy support,
-- cookie management,
-- compression/decompression,
-- retry policies,
-- HTTP/2 and later protocol exploration.
-
-Every post-v1 item should receive its own requirements/design work before implementation.
-
----
-
-# Roadmap Maintenance Rule
-
-Update this roadmap whenever:
-
-- a v1 MUST requirement changes,
-- a milestone completes,
-- implementation order materially changes,
-- a newly discovered correctness blocker becomes release-critical,
-- a feature moves into or out of v1 scope.
+Potential future work includes TLS/HTTPS, async/coroutine execution, streaming bodies, multi-origin connection pooling, proxy/cookie support, compression, retry policies, and later HTTP versions. Each post-v1 feature should receive its own requirements/design work before implementation.

@@ -78,7 +78,8 @@ namespace {
         return false;
     }
 
-    for (const unsigned char ch : name) {
+    for (const char raw_ch : name) {
+        const auto ch = static_cast<unsigned char>(raw_ch);
         if (!is_tchar(ch)) {
             return false;
         }
@@ -87,7 +88,8 @@ namespace {
 }
 
 [[nodiscard]] bool valid_field_value(std::string_view value) noexcept {
-    for (const unsigned char ch : value) {
+    for (const char raw_ch : value) {
+        const auto ch = static_cast<unsigned char>(raw_ch);
         if (ch == '\t') {
             continue;
         }

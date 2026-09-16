@@ -1,0 +1,120 @@
+name: v1 Release Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'examples/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
+      - '.github/workflows/release-gate.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'examples/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
+      - '.github/workflows/release-gate.yml'
+
+jobs:
+  sanitizers:
+    name: ASan + UBSan (Clang, C++17)
+    runs-on: ubuntu-latest
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Configure Sanitizer Build
+      shell: bash
+      run: |
+        cmake -B build-sanitize \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_COMPILER=clang++ \
+          -DCPP_REQUEST_ENABLE_SANITIZERS=ON \
+          -DCPP_REQUEST_WARNINGS_AS_ERRORS=ON \
+          -DCPP_REQUEST_BUILD_BENCHMARKS=OFF \
+          -DCPP_REQUEST_BUILD_EXAMPLES=ON
+
+    - name: Build Sanitizer Configuration
+      shell: bash
+      run: |
+        cmake --build build-sanitize --config Debug
+
+    - name: Run Sanitized Tests
+      shell: bash
+      run: |
+        ctest \
+          --test-dir build-sanitize \
+          --build-config Debug \
+          --output-on-failure \
+          -E '^PackageConsumer\.InstallAndUse$'
+
+  cxx20-consumer:
+    name: C++20 Compatibility + Installed Consumer
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Configure C++20 Build
+      shell: bash
+      run: |
+        cmake -B build-cxx20 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_STANDARD=20 \
+          -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+          -DCPP_REQUEST_WARNINGS_AS_ERRORS=ON \
+          -DCPP_REQUEST_BUILD_BENCHMARKS=OFF \
+          -DCPP_REQUEST_BUILD_EXAMPLES=ON
+
+    - name: Build and Test C++20 Configuration
+      shell: bash
+      run: |
+        cmake --build build-cxx20 --config Release
+        ctest \
+          --test-dir build-cxx20 \
+          --build-config Release \
+          --output-on-failure
+
+    - name: Install Package
+      shell: bash
+      run: |
+        cmake --install build-cxx20 \
+          --config Release \
+          --prefix "$PWD/stage"
+
+    - name: Configure Installed C++20 Consumer
+      shell: bash
+      run: |
+        cmake \
+          -S tests/package_consumer \
+          -B build-consumer-cxx20 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH="$PWD/stage" \
+          -DCMAKE_CXX_STANDARD=20 \
+          -DCMAKE_CXX_STANDARD_REQUIRED=ON
+
+    - name: Build and Run Installed C++20 Consumer
+      shell: bash
+      run: |
+        cmake --build build-consumer-cxx20 --config Release
+        ctest \
+          --test-dir build-consumer-cxx20 \
+          --build-config Release \
+          --output-on-failure

@@ -90,15 +90,16 @@ namespace {
 
 void append_percent_encoded(std::string& output, std::string_view input) {
     constexpr char kHex[] = "0123456789ABCDEF";
-    for (const unsigned char ch : input) {
-        if (is_unreserved(ch)) {
-            output.push_back(static_cast<char>(ch));
+    for (const char ch : input) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (is_unreserved(byte)) {
+            output.push_back(ch);
             continue;
         }
 
         output.push_back('%');
-        output.push_back(kHex[(ch >> 4) & 0x0f]);
-        output.push_back(kHex[ch & 0x0f]);
+        output.push_back(kHex[(byte >> 4) & 0x0f]);
+        output.push_back(kHex[byte & 0x0f]);
     }
 }
 
@@ -131,8 +132,9 @@ void append_query_params(
         return false;
     }
 
-    for (const unsigned char ch : name) {
-        if (!is_tchar(ch)) {
+    for (const char ch : name) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (!is_tchar(byte)) {
             return false;
         }
     }
@@ -140,11 +142,12 @@ void append_query_params(
 }
 
 [[nodiscard]] bool valid_header_value(std::string_view value) noexcept {
-    for (const unsigned char ch : value) {
-        if (ch == '\t') {
+    for (const char ch : value) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (byte == '\t') {
             continue;
         }
-        if (ch < 0x20 || ch == 0x7f) {
+        if (byte < 0x20u || byte == 0x7fu) {
             return false;
         }
     }
