@@ -19,6 +19,43 @@ cpp_request_add_test(cpp_request_tests
 	${CMAKE_CURRENT_SOURCE_DIR}/tcp_io_test.cpp
 )
 
+set(CPP_REQUEST_PUBLIC_HEADERS
+	client.hpp
+	error.hpp
+	headers.hpp
+	request.hpp
+	response.hpp
+	response_limits.hpp
+	result.hpp
+	url.hpp
+)
+
+set(CPP_REQUEST_PUBLIC_HEADER_SOURCES)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/public_headers")
+
+foreach(header IN LISTS CPP_REQUEST_PUBLIC_HEADERS)
+	string(REPLACE ".hpp" "" header_stem "${header}")
+	set(
+		source
+		"${CMAKE_CURRENT_BINARY_DIR}/public_headers/${header_stem}.cpp"
+	)
+	file(WRITE "${source}" "#include <cpp_request/${header}>\n")
+	list(APPEND CPP_REQUEST_PUBLIC_HEADER_SOURCES "${source}")
+endforeach()
+
+add_library(
+	cpp_request_public_headers_compile
+	OBJECT
+	${CPP_REQUEST_PUBLIC_HEADER_SOURCES}
+)
+target_include_directories(
+	cpp_request_public_headers_compile
+	PRIVATE
+		${PROJECT_SOURCE_DIR}/include
+)
+target_compile_features(cpp_request_public_headers_compile PRIVATE cxx_std_17)
+cpp_request_apply_warnings(cpp_request_public_headers_compile)
+
 add_test(
 	NAME PackageConsumer.InstallAndUse
 	COMMAND
