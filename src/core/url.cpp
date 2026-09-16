@@ -39,8 +39,9 @@ namespace {
 }
 
 [[nodiscard]] bool contains_forbidden_url_byte(std::string_view input) noexcept {
-    for (const unsigned char ch : input) {
-        if (ch <= 0x20 || ch == 0x7f) {
+    for (const char ch : input) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (byte <= 0x20u || byte == 0x7fu) {
             return true;
         }
     }
