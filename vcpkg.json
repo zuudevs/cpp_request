@@ -1,7 +1,7 @@
 {
     "name": "cpp-request",
-    "version": "0.1.0",
-    "description": "A lightweight, dependency-free HTTP client library written from scratch in C/C++ to understand low-level network communication and TCP socket programming.",
+    "version": "0.9.0",
+    "description": "A lightweight synchronous C++17 HTTP/1.1 client built on native sockets.",
     "builtin-baseline": "a1cae005c39be7b18ba319fced856b68d7276271",
     "dependencies": [
         "gtest"
