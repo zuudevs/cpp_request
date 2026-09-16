@@ -40,25 +40,112 @@ The v1 public surface consists primarily of:
 
 The v1 API intentionally avoids unnecessary wrappers beyond the configuration types required by the stable surface.
 
+The diagram below summarizes the stable public-facing state and operations of each core type. Private transport/parser state is intentionally omitted.
+
 ```mermaid
 classDiagram
-    class Client
-    class Request
-    class Response
-    class ResponseLimits
-    class Headers
-    class Url
-    class Error
-    class Result~T~
+    direction LR
 
-    Client --> Request : executes
-    Client --> Response : returns
-    Client --> ResponseLimits : configures
-    Request --> Headers : contains
-    Request --> Url : targets
-    Response --> Headers : contains
-    Result~T~ --> Error : failure
+    class Client {
+        +request(Request) Result~Response~
+        +get(string_view) Result~Response~
+        +head(string_view) Result~Response~
+        +post(string_view, string_view) Result~Response~
+        +put(string_view, string_view) Result~Response~
+        +patch(string_view, string_view) Result~Response~
+        +del(string_view) Result~Response~
+        +set_connect_timeout(milliseconds)
+        +set_read_timeout(milliseconds)
+        +set_write_timeout(milliseconds)
+        +set_follow_redirects(bool)
+        +set_max_redirects(size_t)
+        +set_response_limits(ResponseLimits)
+        +response_limits() ResponseLimits
+    }
+
+    class Request {
+        +method() Method
+        +url() string_view
+        +headers() Headers
+        +set_body(string_view)
+        +body() string_view
+        +add_query_param(string_view, string_view)
+        +query_params() QueryParam[]
+    }
+
+    class Response {
+        +status_code() int
+        +reason() string_view
+        +headers() Headers
+        +body() string_view
+        +body_storage() string
+    }
+
+    class ResponseLimits {
+        +max_head_bytes size_t
+        +max_body_bytes size_t
+        +max_chunk_line_bytes size_t
+        +max_trailer_bytes size_t
+    }
+
+    class Headers {
+        +add(string_view, string_view)
+        +set(string_view, string_view)
+        +contains(string_view) bool
+        +get(string_view) string_view
+        +size() size_t
+        +empty() bool
+        +begin() const_iterator
+        +end() const_iterator
+    }
+
+    class Url {
+        +parse(string_view)$ Result~Url~
+        +scheme() string_view
+        +host() string_view
+        +path() string_view
+        +query() string_view
+        +target() string_view
+        +port() uint16_t
+        +has_explicit_port() bool
+        +host_is_ipv6_literal() bool
+    }
+
+    class Error {
+        +code ErrorCode
+        +native_code int
+    }
+
+    class Result~T~ {
+        +success(T)$ Result~T~
+        +failure(Error)$ Result~T~
+        +has_value() bool
+        +value() T
+        +error() Error
+    }
+
+    Client ..> Request : executes
+    Client ..> Url : resolves request target
+    Client --> ResponseLimits : owns configuration
+    Client ..> Response : returns via Result
+
+    Request *-- Headers : owns
+    Request ..> Url : URL text is parsed as
+
+    Response *-- Headers : owns
+
+    Result~T~ o-- Error : failure state
+    Result~T~ o-- Response : success example
 ```
+
+Relationship semantics:
+
+- `Client` executes a `Request` and returns the completed `Response` through `Result<Response>`.
+- `Client` owns its `ResponseLimits` configuration and mutable connection-reuse state; transport state is intentionally omitted from this public diagram.
+- `Request` owns its `Headers` and appended query-parameter strings, while its base URL and body remain borrowed `std::string_view` data.
+- `Response` owns its response metadata/body storage, including its `Headers`.
+- `Url` owns the normalized/parsing storage required to keep its component views valid.
+- `Result<T>` represents either a success payload `T` or an `Error` failure state.
 
 ---
 
