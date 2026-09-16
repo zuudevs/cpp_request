@@ -120,8 +120,11 @@ classDiagram
         +success(T)$ Result~T~
         +failure(Error)$ Result~T~
         +has_value() bool
-        +value() T
-        +error() Error
+        +value() T&
+        +value() const T&
+        +value() T&&
+        +error() Error&
+        +error() const Error&
     }
 
     Client ..> Request : executes
@@ -447,14 +450,18 @@ public:
     bool has_value() const noexcept;
     explicit operator bool() const noexcept;
 
-    T& value();
-    const T& value() const;
+    T& value() & noexcept;
+    const T& value() const& noexcept;
+    T&& value() && noexcept;
 
-    Error error() const noexcept;
+    Error& error() & noexcept;
+    const Error& error() const& noexcept;
 };
 
 } // namespace cpp_request
 ```
+
+`value()` and `error()` are state-dependent accessors with the preconditions documented in `result.md`. The ref-qualified signatures above are part of the stable v1 surface and match the installed header.
 
 The internal representation is intentionally not frozen here.
 
