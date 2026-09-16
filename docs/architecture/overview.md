@@ -4,7 +4,7 @@
 
 - Project: `cpp_request`
 - Target release: MVP v1.0
-- Status: Proposed architecture baseline
+- Status: Frozen v1.0 architecture
 - Language baseline: C++17
 - Protocol scope: synchronous HTTP/1.1 over plaintext TCP
 

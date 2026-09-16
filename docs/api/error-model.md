@@ -4,12 +4,12 @@
 
 - Project: `cpp_request`
 - Target release: MVP v1.0
-- Status: Proposed v1 contract
+- Status: Frozen v1.0 contract
 - Language baseline: C++17
 
 ## Goals
 
-The v1 error model is designed to be:
+The v1 error model is:
 
 1. **Structured** — callers branch on stable library-owned codes, not diagnostic strings.
 2. **Non-exception-based** — expected URL, DNS, socket, timeout, and protocol failures are returned through `Result<T>`.
@@ -19,7 +19,7 @@ The v1 error model is designed to be:
 
 ## Public Error Shape
 
-The public contract should conceptually expose:
+The stable public contract is:
 
 ```cpp
 enum class ErrorCode {
@@ -60,7 +60,7 @@ struct Error {
 };
 ```
 
-The exact physical representation may change during implementation, but the semantic contract above is frozen for v1 unless implementation proves a concrete correctness issue.
+The physical representation may evolve internally, but the semantic contract above is frozen for the v1 stable line unless a correctness fix requires a compatible change.
 
 ## `native_code`
 
@@ -72,7 +72,7 @@ Rules:
 - POSIX errors may preserve `errno`.
 - Windows errors may preserve the result of `WSAGetLastError()` or an equivalent native code.
 - callers must not use `native_code` as the primary portable error contract.
-- library behavior must branch on `ErrorCode`, not platform-native numbers.
+- library behavior branches on `ErrorCode`, not platform-native numbers.
 
 ## Error Categories
 
@@ -124,7 +124,7 @@ Rules:
 
 ### Fallback
 
-`Unknown` is reserved for failures that cannot yet be classified safely. New implementation paths should prefer a specific stable code whenever practical.
+`Unknown` is reserved for failures that cannot be classified safely. New implementation paths should prefer a specific stable code whenever practical.
 
 ## HTTP Status Codes Are Not Library Errors
 
@@ -138,7 +138,7 @@ flowchart LR
     D --> E[Response.status_code may be 2xx, 4xx, 5xx, etc.]
 ```
 
-The library must not convert HTTP status codes into `ErrorCode` values automatically.
+The library does not convert HTTP status codes into `ErrorCode` values automatically.
 
 This separation allows callers to distinguish:
 
@@ -158,8 +158,8 @@ flowchart TD
 Rules:
 
 - platform-specific numeric values never replace `ErrorCode`.
-- lower-layer failures should not be reclassified unless the upper layer has additional semantic information.
-- errors must preserve the most specific meaningful portable classification available.
+- lower-layer failures are not reclassified unless the upper layer has additional semantic information.
+- errors preserve the most specific meaningful portable classification available.
 
 ## Timeout Classification
 
@@ -169,7 +169,7 @@ Timeouts remain distinct by operation:
 - `ReadTimeout`
 - `WriteTimeout`
 
-They must not collapse into one generic timeout code in v1 because callers may need different recovery/logging behavior for each stage.
+They do not collapse into one generic timeout code in v1 because callers may need different recovery/logging behavior for each stage.
 
 ## EOF Semantics
 
@@ -195,7 +195,7 @@ Exceeding a configured limit:
 
 ## Diagnostic Message Function
 
-The library may expose a lightweight function such as:
+The library exposes a lightweight function:
 
 ```cpp
 std::string_view error_message(ErrorCode code) noexcept;
@@ -210,6 +210,6 @@ Requirements:
 
 ## Exception Policy
 
-Expected runtime failures represented by this document must not require exceptions.
+Expected runtime failures represented by this document do not require exceptions.
 
-The v1 contract does not require a global `noexcept` guarantee for every public function, because standard-library allocation may still fail. However, network/protocol error reporting itself must use `Result<T>` rather than throwing library-specific exceptions.
+The v1 contract does not provide a global `noexcept` guarantee for every public function, because standard-library allocation may still fail. Network/protocol error reporting itself uses `Result<T>` rather than library-specific exceptions.

@@ -4,10 +4,10 @@
 
 - Project: `cpp_request`
 - Target release: MVP v1.0
-- Status: Proposed API lifetime baseline
+- Status: Frozen v1.0 contract
 - Language baseline: C++17
 
-This document defines ownership and lifetime rules for public API data, especially where `std::string_view` is used.
+This document defines the stable ownership and lifetime rules for public API data, especially where `std::string_view` is used.
 
 ---
 
@@ -45,14 +45,9 @@ cpp_request::Request req{
 };
 ```
 
-If `Request` stores the supplied view directly, the temporary string is destroyed immediately and the view dangles.
+`Request` stores the supplied view directly, so a temporary string would be destroyed immediately and leave the view dangling.
 
-Therefore, either:
-
-- callers keep borrowed storage alive, or
-- implementation/API overloads explicitly copy when ownership is requested.
-
-The default v1 model should prefer borrowing rather than implicit allocation.
+Callers must keep borrowed URL storage alive while the `Request` may read it.
 
 ### Request body
 
@@ -62,9 +57,7 @@ Because v1 request execution is synchronous, the library does not retain the bod
 
 ### Request headers
 
-Header storage strategy may be owned internally by `Headers` to avoid fragile user-side lifetime requirements for individually inserted fields.
-
-The public contract should prefer safety here: after `Headers::add()` or `Headers::set()` returns successfully, the caller should not be required to keep the source header strings alive.
+`Headers` owns inserted header names and values. After `Headers::add()` or `Headers::set()` returns successfully, the caller does not need to keep the source header strings alive.
 
 This allows temporary values to be used safely when constructing headers while keeping `std::string_view` primarily as an input parameter optimization.
 
@@ -72,7 +65,7 @@ This allows temporary values to be used safely when constructing headers while k
 
 ## Response-Side Lifetime
 
-`Response` owns its completed response body and any storage required to expose stable response metadata.
+`Response` owns its completed response body and the storage required to expose stable response metadata.
 
 A `std::string_view` returned from a `Response` accessor remains valid only while:
 
@@ -97,9 +90,7 @@ Views into a destroyed response are invalid.
 
 ## `Url` Lifetime
 
-A parsed `Url` should expose stable component views for the lifetime of the `Url` object.
-
-Therefore, if parsing requires normalized or reconstructed storage, `Url` should own that storage internally rather than exposing views into temporary parser buffers.
+A parsed `Url` owns normalized URL storage internally and exposes stable component views for the lifetime of the `Url` object.
 
 The public contract is:
 
@@ -114,13 +105,13 @@ The public contract is:
 
 Views returned from header lookup remain valid until the corresponding `Headers` object is mutated in a way that can invalidate internal storage or until it is destroyed.
 
-The implementation should document iterator/reference invalidation rules once the final container representation is selected.
+Iteration/reference invalidation follows the owning container's mutation behavior and should be treated conservatively by callers.
 
 ---
 
 ## Move Semantics
 
-Resource-owning or storage-owning public types should support efficient move semantics where appropriate.
+Resource-owning or storage-owning public types support efficient move semantics where appropriate.
 
 After moving from an object:
 
@@ -137,21 +128,19 @@ This keeps the contract simple and avoids binding the API to container-specific 
 
 ## Copy Semantics
 
-Value-oriented types that own only ordinary data may be copyable where useful.
+Value-oriented types that own ordinary data are copyable where their declarations allow it.
 
-Native socket ownership must never be duplicated by copy.
+Native socket ownership is never duplicated by copy.
 
-`Client` copyability is not guaranteed in v1 because it may own reusable transport state.
+The stable v1 rules are:
 
-The expected safe default is:
+- `Client`: non-copyable and movable,
+- internal socket owners: non-copyable and movable,
+- `Response`: ordinary owning value type according to its generated special members,
+- `Headers`: owning value type,
+- `Url`: owning value type.
 
-- `Client`: non-copyable, movable if practical,
-- internal socket owners: non-copyable, movable,
-- `Response`: movable and copyability may be implementation-dependent,
-- `Headers`: regular owning value type where practical,
-- `Url`: regular owning value type where practical.
-
-Exact special-member declarations are finalized during implementation/public-header review.
+The declarations in the installed public headers are authoritative for exact special-member availability.
 
 ---
 
@@ -174,13 +163,13 @@ sequenceDiagram
     Note over App,Req: Borrowed input no longer needed by execution
 ```
 
-The library must not retain request-side borrowed views for asynchronous work after the synchronous call returns.
+The library does not retain request-side borrowed views for asynchronous work after the synchronous call returns.
 
 ---
 
 ## Invalid Lifetime Patterns
 
-The following are explicitly unsafe unless an owning overload copies the data:
+The following are explicitly unsafe:
 
 - constructing a stored `Request` view from a temporary `std::string`,
 - storing a response-derived view after destroying the `Response`,
@@ -191,10 +180,10 @@ The following are explicitly unsafe unless an owning overload copies the data:
 
 ## Design Rationale
 
-The v1 lifetime model intentionally balances performance and development complexity:
+The v1 lifetime model intentionally balances performance and implementation complexity:
 
 - `std::string_view` avoids unnecessary copies for request inputs,
 - synchronous execution bounds how long borrowed request data is needed,
 - response data remains owned for safe user access,
-- ownership-heavy structures such as headers can copy at construction time where lifetime safety is more valuable than micro-optimizing tiny strings,
+- ownership-heavy structures such as headers copy at construction time where lifetime safety is more valuable than micro-optimizing tiny strings,
 - no custom string-view implementation is required because C++17 is the project baseline.
