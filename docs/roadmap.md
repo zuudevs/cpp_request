@@ -7,12 +7,12 @@
 - Current development version: v0.9.0
 - Language baseline: C++17
 - Protocol scope: synchronous HTTP/1.1 over plaintext TCP
-- Current milestone: v1.0 release hardening
+- Current milestone: v1.0 promotion pending
 - Last roadmap review: 2026-09-16
 
 The frozen functional and non-functional requirements remain authoritative for **what** v1 must provide. This roadmap records implementation milestones and the remaining release work.
 
-The detailed v1 acceptance evidence is maintained in [`docs/release/v1.0-acceptance.md`](release/v1.0-acceptance.md).
+Detailed acceptance evidence is maintained in [`docs/release/v1.0-acceptance.md`](release/v1.0-acceptance.md), with the manual review in [`docs/release/v1.0-manual-review.md`](release/v1.0-manual-review.md).
 
 ---
 
@@ -29,7 +29,7 @@ The detailed v1 acceptance evidence is maintained in [`docs/release/v1.0-accepta
 | v0.7 | Redirect handling | ✅ Complete |
 | v0.8 | Protocol/API correctness hardening | ✅ Complete |
 | v0.9 | Packaging, benchmarks, examples, documentation | ✅ Complete |
-| v1.0 | Release hardening and acceptance gate | 🚧 In progress |
+| v1.0 | Release hardening and acceptance gate | ✅ Acceptance complete; promotion pending |
 
 ---
 
@@ -91,59 +91,66 @@ References: PR #26–#29.
 
 ---
 
-# v1.0 — Release Hardening and Acceptance Gate 🚧
+# v1.0 — Release Hardening and Acceptance Gate ✅
 
 Goal: verify the frozen requirements as one coherent release candidate without adding new feature scope.
 
 ## Automated verification
 
-The release candidate must have:
+Completed and green on the release-hardening candidate:
 
-- Windows Debug/Release CI green,
-- Linux Debug/Release CI green,
-- macOS Debug/Release CI green,
+- Windows Debug/Release CI,
+- Linux Debug/Release CI,
+- macOS Debug/Release CI,
 - C++17 build/test coverage,
 - C++20 compatibility coverage,
-- ASan + UBSan test execution where supported,
+- ASan + UBSan test execution,
 - warnings-as-errors release-gate builds,
-- unit and loopback integration tests green,
-- no required HTTP test depending on a public service,
-- install-tree consumer test green,
-- C++20 installed-consumer test green,
-- benchmark smoke jobs green,
-- examples compiling,
-- every public header compiling independently without `src/` includes.
+- unit and loopback integration tests,
+- install-tree consumer test,
+- C++20 installed-consumer test,
+- benchmark smoke jobs,
+- examples compilation,
+- public-header isolation without `src/` includes.
 
-## Required review
+Release-hardening implementation reference: PR #30.
 
-Before v1.0.0 promotion:
+## Manual acceptance
 
-- every MUST functional requirement must have implementation/test evidence,
-- every MUST non-functional requirement must have a verification path,
-- no known bug may corrupt HTTP message framing or reuse an invalid connection,
-- expected URL/network/protocol/resource failures must remain structured,
-- the installed library must have zero third-party runtime dependency,
-- public API/lifetime/error documentation must match implementation,
-- performance claims must be grounded in the benchmark suite,
-- release version/tag metadata must be finalized.
+Completed on 2026-09-16. The review covered:
 
-The requirement-to-evidence matrix lives in [`docs/release/v1.0-acceptance.md`](release/v1.0-acceptance.md).
+- HTTP message framing and connection reuse,
+- public API/lifetime/error contracts,
+- exported dependency boundaries,
+- benchmark/performance-claim discipline,
+- frozen-scope compliance,
+- release/version/tag metadata.
 
-## Promotion sequence
+No code/API feature blocker remains. See [`docs/release/v1.0-manual-review.md`](release/v1.0-manual-review.md).
+
+## Remaining promotion work
+
+The project deliberately remains at `0.9.0` until a focused promotion PR:
+
+1. bumps CMake and manifest versions to `1.0.0`,
+2. marks v1.0 released/complete in documentation,
+3. freezes remaining editorial pre-release API wording,
+4. finalizes v1.0 release notes,
+5. reruns the release gates.
+
+After that PR is merged, create tag `v1.0.0` and the GitHub release as a separate explicit action.
 
 ```text
 v1.0 hardening gates green
     ↓
-manual acceptance review
+manual acceptance review ✅
     ↓
-focused 0.9.0 → 1.0.0 release PR
+focused 0.9.0 → 1.0.0 release PR  ← next
     ↓
 merge
     ↓
 v1.0 tag / release
 ```
-
-The current hardening branch intentionally keeps the project version at `0.9.0`. The version becomes `1.0.0` only after the acceptance gate is satisfied.
 
 ---
 
