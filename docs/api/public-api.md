@@ -4,15 +4,15 @@
 
 - Project: `cpp_request`
 - Target release: MVP v1.0
-- Status: Proposed API baseline
+- Status: Frozen v1.0 contract
 - Language baseline: C++17
 - Namespace: `cpp_request`
 
-This document defines the intended public API shape for v1.0. Internal implementation details remain free to change as long as the documented behavior is preserved.
+This document defines the frozen public API contract for v1.0. Internal implementation details remain free to change as long as the documented behavior and source-level compatibility are preserved.
 
 ## Design Principles
 
-The public API should be:
+The public API is designed to be:
 
 1. small,
 2. explicit,
@@ -38,7 +38,7 @@ The v1 public surface consists primarily of:
 - `Error`
 - `Result<T>`
 
-Supporting configuration types may be introduced when they materially improve clarity, but the v1 API should avoid unnecessary wrappers.
+The v1 API intentionally avoids unnecessary wrappers beyond the configuration types required by the stable surface.
 
 ```mermaid
 classDiagram
@@ -75,7 +75,7 @@ Responsibilities:
 - execute sequential HTTP requests,
 - expose convenience member functions for common methods.
 
-Conceptual interface:
+Public interface shape:
 
 ```cpp
 namespace cpp_request {
@@ -114,7 +114,7 @@ public:
 } // namespace cpp_request
 ```
 
-Exact overload count may change before implementation, but the behavioral contract above is the v1 target.
+The declarations above describe the v1.0 public surface. Post-v1 additions must preserve the compatibility expectations of the stable v1 line.
 
 ### Thread safety
 
@@ -159,7 +159,7 @@ Zero is a real limit rather than an unlimited sentinel. Full enforcement details
 
 `Request` represents a complete logical HTTP request description before execution.
 
-Conceptual interface:
+Public interface shape:
 
 ```cpp
 namespace cpp_request {
@@ -200,7 +200,7 @@ public:
 
 ### Borrowed and owned request data
 
-The base URL and body may remain non-owning views. Their lifetime requirements are defined in `lifetime.md`.
+The base URL and body are non-owning views. Their lifetime requirements are defined in `lifetime.md`.
 
 Headers and query parameters added through the request object own their copied text independently from the caller's source buffers.
 
@@ -231,7 +231,7 @@ The raw URL parser does not silently repair malformed percent escapes. A raw pat
 
 The response owns its body because v1 only exposes completed in-memory responses.
 
-Conceptual interface:
+Public interface shape:
 
 ```cpp
 namespace cpp_request {
@@ -250,7 +250,7 @@ public:
 } // namespace cpp_request
 ```
 
-The exact body accessor names are not frozen by this document, but the following behavior is:
+The v1.0 accessors above are the stable response surface. The following behavior is guaranteed:
 
 - completed response body is owned by `Response`,
 - callers can access it without copying,
@@ -270,7 +270,7 @@ Required behavior:
 - efficient iteration,
 - no requirement to canonicalize original field-name casing.
 
-Conceptual API:
+Public API:
 
 ```cpp
 namespace cpp_request {
@@ -293,7 +293,7 @@ For v1:
 
 - `get(name)` returns the first matching field value,
 - absence is represented by an empty view,
-- APIs for enumerating all duplicate values may be added if required by implementation/tests without breaking this base contract.
+- ordered duplicate fields remain available through iteration.
 
 ---
 
@@ -311,7 +311,7 @@ Required observable components:
 - query,
 - request target.
 
-Conceptual interface:
+Public interface shape:
 
 ```cpp
 namespace cpp_request {
@@ -349,7 +349,7 @@ Required semantic states:
 - success with `T`,
 - failure with `Error`.
 
-Conceptual interface:
+Public interface shape:
 
 ```cpp
 namespace cpp_request {
@@ -379,11 +379,11 @@ The internal representation is intentionally not frozen here.
 
 `Error` is a library-owned structured error value.
 
-The exact taxonomy is intentionally deferred to the dedicated error-model document.
+The stable v1 taxonomy is defined by the dedicated error-model document and `error.hpp`.
 
 The public contract requires that callers can distinguish major failure classes without parsing diagnostic strings.
 
-Expected categories include:
+Categories include:
 
 - invalid URL,
 - unsupported scheme,
@@ -400,9 +400,7 @@ Expected categories include:
 
 ## Free Convenience Functions
 
-The library should expose stateless convenience helpers for simple one-shot requests.
-
-Conceptually:
+The library exposes stateless convenience helpers for simple one-shot requests.
 
 ```cpp
 namespace cpp_request {
@@ -417,7 +415,7 @@ Result<Response> del(std::string_view url);
 } // namespace cpp_request
 ```
 
-These helpers may internally create a temporary `Client` and therefore do not promise connection reuse across separate calls.
+These helpers internally use a temporary `Client` and therefore do not promise connection reuse across separate calls.
 
 ---
 
@@ -455,13 +453,13 @@ For v1 public API:
 - avoid platform-specific terminology,
 - avoid exposing internal parser/transport types.
 
-`delete` is a C++ keyword, so the convenience member/free function uses `del()` unless a better non-keyword name is selected before freeze.
+`delete` is a C++ keyword, so the stable v1 convenience member/free function is named `del()`.
 
 ---
 
 ## Explicit v1 API Non-Goals
 
-The public API will not include dedicated abstractions for:
+The public API does not include dedicated abstractions for:
 
 - TLS configuration,
 - async handles/futures,
