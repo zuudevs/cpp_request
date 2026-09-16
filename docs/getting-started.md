@@ -1,6 +1,6 @@
 # Getting started
 
-This guide covers the public v0.9 API that is intended to become the v1 baseline.
+This guide covers the stable cpp_request v1.0 public API.
 
 ## Requirements
 
