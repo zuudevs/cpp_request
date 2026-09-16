@@ -17,7 +17,7 @@ function(cpp_request_configure_install)
 	write_basic_package_version_file(
 		"${PROJECT_BINARY_DIR}/cpp_requestConfigVersion.cmake"
 		VERSION "${PROJECT_VERSION}"
-		COMPATIBILITY SameMinorVersion
+		COMPATIBILITY SameMajorVersion
 	)
 
 	install(
